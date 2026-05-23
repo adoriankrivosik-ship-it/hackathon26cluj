@@ -31,13 +31,13 @@ Editează `.env.local` și înlocuiește placeholder-ul cu tokenul tău public d
 npm run db:setup
 ```
 
-Aceasta generează `./.dev.db` (SQLite) cu schema + cele 6 proiecte seed. `npm run dev` citește din acest fișier.
-
-Pentru D1 Wrangler local (opțional, deploy Cloudflare):
+Generează `./.dev.db` cu proiecte + tabel `walk_pins` + 4 pinuri demo (Centru, Mănăștur, Iris, Gheorgheni).
 
 ```bash
-npm run db:setup:wrangler
+npm run db:seed-walk   # doar pinuri walk (dacă DB există deja)
 ```
+
+Pentru D1 Wrangler remote/local (deploy Cloudflare): `npm run db:setup:wrangler`
 
 4. Pornește serverul de dezvoltare:
 
@@ -45,7 +45,7 @@ npm run db:setup:wrangler
 npm run dev
 ```
 
-Deschide [http://localhost:3000](http://localhost:3000). Acceptă permisiunea de locație dacă vrei poligonul de 15 minute pe jos.
+Deschide [http://localhost:3000](http://localhost:3000). Mod **Scor 15 minute**: apasă pe hartă pentru pin + scor walkability (OSM + Mapbox Isochrone, cache D1).
 
 ## Date (D1)
 

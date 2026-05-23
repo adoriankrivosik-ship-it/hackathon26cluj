@@ -60,7 +60,7 @@ function isCloudflarePagesRuntime(): boolean {
   return process.env.CF_PAGES === "1";
 }
 
-async function getDatabase(): Promise<D1Database> {
+export async function getDatabase(): Promise<D1Database> {
   if (!isCloudflarePagesRuntime()) {
     const { createSqliteD1Adapter } = await import("./dev-db-adapter");
     return createSqliteD1Adapter();

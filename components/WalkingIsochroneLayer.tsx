@@ -1,7 +1,7 @@
 "use client";
 
 import { Layer, Source } from "react-map-gl";
-import type { IsochroneGeoJSON } from "@/lib/walking-isochrone";
+import type { IsochroneGeoJSON } from "@/lib/isochrone";
 
 interface WalkingIsochroneLayerProps {
   geojson: IsochroneGeoJSON | null;

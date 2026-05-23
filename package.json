@@ -10,6 +10,7 @@
     "db:migrate": "wrangler d1 migrations apply harta-proiecte-db --local",
     "db:seed": "wrangler d1 execute harta-proiecte-db --local --file=./migrations/0002_seed_projects.sql",
     "db:setup": "node scripts/init-dev-db.mjs",
+    "db:seed-walk": "node scripts/seed-walk-pins.mjs",
     "db:setup:wrangler": "npm run db:migrate"
   },
   "dependencies": {
