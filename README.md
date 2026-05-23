@@ -9,13 +9,27 @@ Platformă de transparență civică: vizualizează proiectele de infrastructur�
 - Mapbox GL JS (`react-map-gl`)
 - Cloudflare D1 (proiecte publice)
 
+## Landing page (Totulcluj.ro)
+
+Pagina de prezentare este la **`/landing`**, nu la rădăcină (`/`).
+
+După `npm run dev`, deschide:
+
+**[http://localhost:3000/landing](http://localhost:3000/landing)**
+
+Nu necesită Mapbox, baza de date sau `db:setup` — este statică.
+
 ## Setup
+
+**Node.js:** folosește **v20 sau v22 LTS** (nu v24). Pe Windows, `better-sqlite3` (pentru harta de la `/`) necesită binare precompilate sau Visual Studio Build Tools; v24 adesea eșuează la `npm install`.
 
 1. Instalează dependențele:
 
 ```bash
 npm install
 ```
+
+(Proiectul include `.npmrc` cu `legacy-peer-deps` pentru conflictele de peer deps.)
 
 2. Copiază fișierul de mediu și adaugă tokenul Mapbox:
 
@@ -64,4 +78,5 @@ API opțional: `GET /api/projects` (JSON).
 - `lib/projects.ts` — tipuri, `PROJECT_STATUSES`, formatters (fără array hardcodat)
 - `lib/geo.ts` — utilitare geometrie (pentru viitoare funcții)
 - `components/MapView.tsx` — hartă + filtre + legendă
+- `app/landing/` — landing Totulcluj.ro (`/landing`)
 - `wrangler.toml` — binding `DB` → D1
