@@ -5,6 +5,16 @@ export const WALK_AMENITY_CLUSTER_LAYER_ID = "walk-amenity-clusters";
 export const WALK_AMENITY_CLUSTER_COUNT_LAYER_ID = "walk-amenity-cluster-count";
 export const WALK_AMENITY_UNCLUSTERED_LAYER_ID = "walk-amenity-unclustered";
 
+/** Clusters break apart earlier when zooming in. */
+export const WALK_CLUSTER_MAX_ZOOM = 20;
+export const WALK_CLUSTER_RADIUS = 28;
+
+/** Extra zoom past expansion threshold when clicking a cluster. */
+export const WALK_CLUSTER_EXPAND_ZOOM_BOOST = 1.25;
+
+/** Unclustered marker scale on map (+30% vs previous icon-size 1). */
+export const WALK_AMENITY_ICON_SIZE = 1.3;
+
 export const WALK_AMENITY_INTERACTIVE_LAYERS = [
   WALK_AMENITY_CLUSTER_LAYER_ID,
   WALK_AMENITY_UNCLUSTERED_LAYER_ID,

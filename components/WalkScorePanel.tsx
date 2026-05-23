@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { WALK_CATEGORIES } from "@/lib/walkscore-config";
+import {
+  WALK_CATEGORIES,
+  type WalkCategoryKey,
+  type WalkSubcategoryKey,
+} from "@/lib/walkscore-config";
+import type { WalkMapVisibility } from "@/lib/walk-category-filter";
+import {
+  isCategoryFullyOnMap,
+  isCategoryPartiallyOnMap,
+  isWalkMapFilterActive,
+} from "@/lib/walk-category-filter";
 import { scoreToColor } from "@/lib/walkscore-colors";
 import type { WalkScoreResult } from "@/lib/walkscore-types";
 import { CategoryBar } from "./CategoryBar";
@@ -10,6 +20,12 @@ interface WalkScorePanelProps {
   result: WalkScoreResult | null;
   loading: boolean;
   error: string | null;
+  mapVisibility: WalkMapVisibility;
+  onToggleCategoryOnMap: (category: WalkCategoryKey) => void;
+  onToggleSubcategoryOnMap: (subcategory: WalkSubcategoryKey) => void;
+  onShowAllOnMap: () => void;
+  onHideAllOnMap: () => void;
+  visibleOnMapCount: number;
   onClose: () => void;
 }
 
@@ -17,6 +33,12 @@ export function WalkScorePanel({
   result,
   loading,
   error,
+  mapVisibility,
+  onToggleCategoryOnMap,
+  onToggleSubcategoryOnMap,
+  onShowAllOnMap,
+  onHideAllOnMap,
+  visibleOnMapCount,
   onClose,
 }: WalkScorePanelProps) {
   const isOpen = loading || error !== null || result !== null;
@@ -32,6 +54,9 @@ export function WalkScorePanel({
 
   const overallColor = result ? scoreToColor(result.overallScore) : undefined;
   const totalAmenities = result?.amenities.length ?? 0;
+  const mapFilterActive = result
+    ? isWalkMapFilterActive(mapVisibility)
+    : false;
 
   return (
     <>
@@ -141,26 +166,71 @@ export function WalkScorePanel({
                 </div>
               </div>
 
-              <p className="mt-3 text-sm text-gray-600">
-                <span className="font-semibold text-gray-900">{totalAmenities}</span>{" "}
-                facilități în zona accesibilă
-              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-gray-600">
+                  <span className="font-semibold text-gray-900">
+                    {mapFilterActive ? visibleOnMapCount : totalAmenities}
+                  </span>
+                  {mapFilterActive ? (
+                    <>
+                      {" "}
+                      afișate pe hartă din{" "}
+                      <span className="font-medium text-gray-800">
+                        {totalAmenities}
+                      </span>
+                    </>
+                  ) : (
+                    " facilități în zona accesibilă"
+                  )}
+                </p>
+                <div className="flex gap-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={onShowAllOnMap}
+                    className="rounded-md px-2 py-0.5 font-medium text-primary hover:bg-primary/5"
+                  >
+                    Toate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onHideAllOnMap}
+                    className="rounded-md px-2 py-0.5 font-medium text-gray-500 hover:bg-gray-100"
+                  >
+                    Niciuna
+                  </button>
+                </div>
+              </div>
 
-              <section className="mt-6 space-y-4" aria-label="Scoruri pe categorii">
-                {WALK_CATEGORIES.map((cat) => (
-                  <CategoryBar
-                    key={cat.key}
-                    label={cat.label}
-                    count={result.counts[cat.key]}
-                    score={result.scores[cat.key]}
-                    color={cat.color}
-                    animate={isOpen}
-                    subcategories={cat.subcategories?.map((sub) => ({
-                      label: sub.label,
-                      count: result.subcategoryCounts[sub.key] ?? 0,
-                    }))}
-                  />
-                ))}
+              <section
+                className="mt-5 space-y-4"
+                aria-label="Scoruri pe categorii"
+              >
+                {WALK_CATEGORIES.map((cat) => {
+                  const fullyOn = isCategoryFullyOnMap(cat, mapVisibility);
+                  const partial = isCategoryPartiallyOnMap(cat, mapVisibility);
+
+                  return (
+                    <CategoryBar
+                      key={cat.key}
+                      label={cat.label}
+                      count={result.counts[cat.key]}
+                      score={result.scores[cat.key]}
+                      color={cat.color}
+                      animate={isOpen}
+                      mapVisible={fullyOn}
+                      mapIndeterminate={partial}
+                      onToggleMapVisible={() => onToggleCategoryOnMap(cat.key)}
+                      subcategories={cat.subcategories?.map((sub) => ({
+                        key: sub.key,
+                        label: sub.label,
+                        count: result.subcategoryCounts[sub.key] ?? 0,
+                        mapVisible: mapVisibility.subcategories.has(sub.key),
+                        onToggleMapVisible: () =>
+                          onToggleSubcategoryOnMap(sub.key),
+                      }))}
+                    />
+                  );
+                })}
               </section>
             </>
           )}

@@ -5,6 +5,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject, ProjectStatus } from "@/lib/projects";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
+import {
+  createDefaultWalkMapVisibility,
+  filterAmenitiesForMap,
+  toggleCategoryOnMap,
+  toggleSubcategoryOnMap,
+  type WalkMapVisibility,
+} from "@/lib/walk-category-filter";
+import {
+  WALK_CATEGORIES,
+  type WalkCategoryKey,
+  type WalkSubcategoryKey,
+} from "@/lib/walkscore-config";
 import type { WalkScoreResult } from "@/lib/walkscore-types";
 import {
   createDefaultFilters,
@@ -53,6 +65,8 @@ export function MapView({ projects }: MapViewProps) {
   const [walkResult, setWalkResult] = useState<WalkScoreResult | null>(null);
   const [walkLoading, setWalkLoading] = useState(false);
   const [walkError, setWalkError] = useState<string | null>(null);
+  const [walkMapVisibility, setWalkMapVisibility] =
+    useState<WalkMapVisibility>(createDefaultWalkMapVisibility);
 
   const visibleIds = useMemo(() => {
     const visible = filterProjects(projects, filters);
@@ -76,6 +90,31 @@ export function MapView({ projects }: MapViewProps) {
     setWalkError(null);
     setWalkLoading(false);
     setWalkDropPin(null);
+    setWalkMapVisibility(createDefaultWalkMapVisibility());
+  }, []);
+
+  const handleToggleWalkCategoryOnMap = useCallback((key: WalkCategoryKey) => {
+    const cat = WALK_CATEGORIES.find((c) => c.key === key);
+    if (!cat) return;
+    setWalkMapVisibility((prev) => toggleCategoryOnMap(cat, prev));
+  }, []);
+
+  const handleToggleWalkSubcategoryOnMap = useCallback(
+    (key: WalkSubcategoryKey) => {
+      setWalkMapVisibility((prev) => toggleSubcategoryOnMap(key, prev));
+    },
+    [],
+  );
+
+  const handleShowAllOnMap = useCallback(() => {
+    setWalkMapVisibility(createDefaultWalkMapVisibility());
+  }, []);
+
+  const handleHideAllOnMap = useCallback(() => {
+    setWalkMapVisibility({
+      subcategories: new Set(),
+      leafCategories: new Set(),
+    });
   }, []);
 
   const handleModeChange = useCallback((mode: MapMode) => {
@@ -104,6 +143,7 @@ export function MapView({ projects }: MapViewProps) {
       }
 
       setWalkResult(data);
+      setWalkMapVisibility(createDefaultWalkMapVisibility());
     } catch {
       setWalkError(
         "Serviciul de date deschise e momentan ocupat, încearcă din nou",
@@ -159,7 +199,11 @@ export function MapView({ projects }: MapViewProps) {
 
   const walkIsochrone: IsochroneGeoJSON | null =
     walkResult?.isochroneGeojson ?? null;
-  const walkAmenities = walkResult?.amenities ?? [];
+  const walkAmenitiesAll = walkResult?.amenities ?? [];
+  const walkAmenities = useMemo(
+    () => filterAmenitiesForMap(walkAmenitiesAll, walkMapVisibility),
+    [walkAmenitiesAll, walkMapVisibility],
+  );
 
   if (!mounted) {
     return <MapLoading />;
@@ -243,6 +287,12 @@ export function MapView({ projects }: MapViewProps) {
         result={!isProjectsMode ? walkResult : null}
         loading={!isProjectsMode && walkLoading}
         error={!isProjectsMode ? walkError : null}
+        mapVisibility={walkMapVisibility}
+        onToggleCategoryOnMap={handleToggleWalkCategoryOnMap}
+        onToggleSubcategoryOnMap={handleToggleWalkSubcategoryOnMap}
+        onShowAllOnMap={handleShowAllOnMap}
+        onHideAllOnMap={handleHideAllOnMap}
+        visibleOnMapCount={walkAmenities.length}
         onClose={handleCloseWalkPanel}
       />
     </div>

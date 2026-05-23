@@ -8,14 +8,16 @@ import {
   amenityKey,
   WALK_AMENITY_CLUSTER_COUNT_LAYER_ID,
   WALK_AMENITY_CLUSTER_LAYER_ID,
+  WALK_AMENITY_ICON_SIZE,
   WALK_AMENITY_SOURCE_ID,
   WALK_AMENITY_UNCLUSTERED_LAYER_ID,
+  WALK_CLUSTER_EXPAND_ZOOM_BOOST,
+  WALK_CLUSTER_MAX_ZOOM,
+  WALK_CLUSTER_RADIUS,
   amenitiesToFeatureCollection,
 } from "@/lib/walk-amenity-geojson";
 import { loadWalkAmenityMapImages } from "@/lib/walk-amenity-map-icons";
 import type { WalkScoreAmenity } from "@/lib/walkscore-types";
-
-const CLUSTER_COLOR = "#64748b";
 
 interface WalkAmenityClusterLayerProps {
   amenities: WalkScoreAmenity[];
@@ -90,9 +92,13 @@ export function WalkAmenityClusterLayer({
             number,
             number,
           ];
+          const targetZoom = Math.min(
+            (zoom ?? map.getZoom() + 2) + WALK_CLUSTER_EXPAND_ZOOM_BOOST,
+            20,
+          );
           map.easeTo({
             center: coordinates,
-            zoom: zoom ?? map.getZoom() + 2,
+            zoom: targetZoom,
             duration: 500,
           });
         },
@@ -152,29 +158,30 @@ export function WalkAmenityClusterLayer({
       type="geojson"
       data={geojson}
       cluster
-      clusterMaxZoom={16}
-      clusterRadius={48}
+      clusterMaxZoom={WALK_CLUSTER_MAX_ZOOM}
+      clusterRadius={WALK_CLUSTER_RADIUS}
     >
       <Layer
         id={WALK_AMENITY_CLUSTER_LAYER_ID}
         type="circle"
         filter={["has", "point_count"]}
         paint={{
-          "circle-color": CLUSTER_COLOR,
+          "circle-color": "#ffffff",
           "circle-radius": [
             "step",
             ["get", "point_count"],
-            18,
-            5,
-            22,
-            12,
-            26,
+            16,
+            4,
+            20,
+            10,
             24,
-            30,
+            20,
+            28,
           ],
-          "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
-          "circle-opacity": 0.95,
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#0f4c5c",
+          "circle-opacity": 0.97,
+          "circle-blur": 0.05,
         }}
       />
       <Layer
@@ -184,10 +191,18 @@ export function WalkAmenityClusterLayer({
         layout={{
           "text-field": ["get", "point_count"],
           "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Bold"],
-          "text-size": 12,
+          "text-size": [
+            "step",
+            ["get", "point_count"],
+            12,
+            10,
+            13,
+            25,
+            14,
+          ],
         }}
         paint={{
-          "text-color": "#ffffff",
+          "text-color": "#0f4c5c",
         }}
       />
       {imagesReady && (
@@ -201,7 +216,7 @@ export function WalkAmenityClusterLayer({
               "walk-amenity-",
               ["get", "category"],
             ],
-            "icon-size": 1,
+            "icon-size": WALK_AMENITY_ICON_SIZE,
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
           }}
