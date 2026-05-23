@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-surface text-gray-900;
+  }
+}
+
+.mapboxgl-ctrl-attrib {
+  font-size: 10px;
+}
+
+.mapboxgl-ctrl-logo {
+  margin-bottom: 0 !important;
+}
+
+@media (max-width: 767px) {
+  .mapboxgl-ctrl-bottom-right {
+    bottom: 4.5rem;
+  }
+
+  .mapboxgl-ctrl-bottom-left {
+    bottom: 5.5rem;
+  }
+}
