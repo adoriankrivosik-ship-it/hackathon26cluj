@@ -3,9 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
-import type { PublicProject } from "@/lib/projects";
-import { projects } from "@/lib/projects";
-import type { ProjectStatus } from "@/lib/projects";
+import type { PublicProject, ProjectStatus } from "@/lib/projects";
 import {
   createDefaultFilters,
   filterProjects,
@@ -13,15 +11,14 @@ import {
   type CategoryFilter,
 } from "@/lib/filters";
 import {
-  findNeighborhoodById,
-  type Neighborhood,
-} from "@/lib/neighborhoods";
+  fetchWalkingIsochrone,
+  type IsochroneGeoJSON,
+} from "@/lib/walking-isochrone";
+import { useUserLocation } from "@/hooks/useUserLocation";
 import { ProjectDetailPanel } from "./ProjectDetailPanel";
 import { FilterBar } from "./FilterBar";
 import { StatusLegend } from "./StatusLegend";
-import { MapModeToggle, type MapMode } from "./MapModeToggle";
-import { NeighborhoodPanel } from "./NeighborhoodPanel";
-import { ScoreLegend } from "./ScoreLegend";
+import { WalkReachLegend } from "./WalkReachLegend";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
@@ -40,37 +37,42 @@ function MapLoading() {
   );
 }
 
-export function MapView() {
+interface MapViewProps {
+  projects: PublicProject[];
+}
+
+export function MapView({ projects }: MapViewProps) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const [mounted, setMounted] = useState(false);
-  const [mapMode, setMapMode] = useState<MapMode>("projects");
   const [selectedProject, setSelectedProject] = useState<PublicProject | null>(
     null,
   );
-  const [selectedNeighborhood, setSelectedNeighborhood] =
-    useState<Neighborhood | null>(null);
   const [filters, setFilters] = useState(createDefaultFilters);
+  const [isochrone, setIsochrone] = useState<IsochroneGeoJSON | null>(null);
+  const [isochroneLoading, setIsochroneLoading] = useState(false);
+  const [isochroneError, setIsochroneError] = useState<string | null>(null);
+
+  const {
+    position: userLocation,
+    loading: locationLoading,
+    error: locationError,
+    refresh: refreshLocation,
+  } = useUserLocation();
 
   const visibleIds = useMemo(() => {
     const visible = filterProjects(projects, filters);
     return new Set(visible.map((p) => p.id));
-  }, [filters]);
+  }, [projects, filters]);
 
   const visibleCount = visibleIds.size;
   const filtersActive = hasActiveFilters(filters);
-  const isProjectsMode = mapMode === "projects";
 
   const handleSelectProject = useCallback((project: PublicProject) => {
     setSelectedProject(project);
-    setSelectedNeighborhood(null);
   }, []);
 
   const handleCloseProject = useCallback(() => {
     setSelectedProject(null);
-  }, []);
-
-  const handleCloseNeighborhood = useCallback(() => {
-    setSelectedNeighborhood(null);
   }, []);
 
   const handleCategoryChange = useCallback((category: CategoryFilter) => {
@@ -93,49 +95,15 @@ export function MapView() {
     });
   }, []);
 
-  const handleModeChange = useCallback((mode: MapMode) => {
-    setMapMode(mode);
-    setSelectedProject(null);
-    setSelectedNeighborhood(null);
-  }, []);
+  const handleMapClick = useCallback(() => {
+    handleCloseProject();
+  }, [handleCloseProject]);
 
-  const handleMapClick = useCallback(
-    (e: MapLayerMouseEvent) => {
-      if (mapMode === "neighborhoods") {
-        const feature = e.features?.find(
-          (f) => f.layer?.id === "neighborhood-fill",
-        );
-        if (feature?.properties?.id) {
-          const neighborhood = findNeighborhoodById(
-            String(feature.properties.id),
-          );
-          if (neighborhood) {
-            setSelectedNeighborhood(neighborhood);
-            setSelectedProject(null);
-          }
-          return;
-        }
-        setSelectedNeighborhood(null);
-        return;
-      }
-      handleCloseProject();
-    },
-    [mapMode, handleCloseProject],
-  );
-
-  const handleMapMouseMove = useCallback(
-    (e: MapLayerMouseEvent) => {
-      const canvas = e.target.getCanvas();
-      if (mapMode === "neighborhoods" && e.features?.some(
-        (f) => f.layer?.id === "neighborhood-fill",
-      )) {
-        canvas.style.cursor = "pointer";
-      } else {
-        canvas.style.cursor = "";
-      }
-    },
-    [mapMode],
-  );
+  const handleRetryLocation = useCallback(() => {
+    setIsochrone(null);
+    setIsochroneError(null);
+    refreshLocation();
+  }, [refreshLocation]);
 
   useEffect(() => {
     setMounted(true);
@@ -146,6 +114,38 @@ export function MapView() {
       setSelectedProject(null);
     }
   }, [selectedProject, visibleIds]);
+
+  // Build 15-minute walking polygon when we have location + token
+  useEffect(() => {
+    if (!userLocation || !token) return;
+
+    let cancelled = false;
+    setIsochroneLoading(true);
+    setIsochroneError(null);
+
+    fetchWalkingIsochrone(userLocation[0], userLocation[1], token)
+      .then((data) => {
+        if (!cancelled) setIsochrone(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setIsochroneError(
+            err instanceof Error
+              ? err.message
+              : "Nu s-a putut calcula zona de mers pe jos.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsochroneLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userLocation, token]);
+
+  const legendError = locationError ?? isochroneError;
 
   if (!mounted) {
     return <MapLoading />;
@@ -173,64 +173,53 @@ export function MapView() {
     <div className="relative h-screen w-full">
       <MapCanvas
         token={token}
-        mapMode={mapMode}
+        projects={projects}
         selectedProjectId={selectedProject?.id ?? null}
-        selectedNeighborhoodId={selectedNeighborhood?.id ?? null}
         visibleProjectIds={visibleIds}
-        isProjectsMode={isProjectsMode}
+        userLocation={userLocation}
+        userLocationLoading={locationLoading}
+        isochrone={isochrone}
         onMapClick={handleMapClick}
-        onMapMouseMove={handleMapMouseMove}
         onSelectProject={handleSelectProject}
       />
 
-      {/* Top overlay */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-4 md:p-5 md:pl-[3.25rem]">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-            <div className="pointer-events-auto shrink-0 rounded-xl bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm ring-1 ring-gray-200/80">
-              <h1 className="text-base font-semibold text-primary md:text-lg">
-                Hartă Proiecte Publice
-              </h1>
-              <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
-                Cluj-Napoca — transparență civică
-              </p>
-            </div>
-            <MapModeToggle mode={mapMode} onChange={handleModeChange} />
+          <div className="pointer-events-auto shrink-0 rounded-xl bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm ring-1 ring-gray-200/80">
+            <h1 className="text-base font-semibold text-primary md:text-lg">
+              Hartă Proiecte Publice
+            </h1>
+            <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
+              Cluj-Napoca — transparență civică
+            </p>
           </div>
-          {isProjectsMode && (
-            <FilterBar
-              filters={filters}
-              onCategoryChange={handleCategoryChange}
-              onDelayedOnlyChange={handleDelayedOnlyChange}
-              visibleCount={visibleCount}
-              totalCount={projects.length}
-              showCount={filtersActive}
-            />
-          )}
+          <FilterBar
+            filters={filters}
+            onCategoryChange={handleCategoryChange}
+            onDelayedOnlyChange={handleDelayedOnlyChange}
+            visibleCount={visibleCount}
+            totalCount={projects.length}
+            showCount={filtersActive}
+          />
         </div>
       </div>
 
-      {/* Bottom-left legend — swaps by mode */}
-      <div className="pointer-events-none absolute bottom-6 left-4 z-10 transition-opacity duration-panel md:bottom-8 md:left-5">
-        {isProjectsMode ? (
-          <StatusLegend
-            activeStatuses={filters.activeStatuses}
-            onToggleStatus={handleToggleStatus}
-          />
-        ) : (
-          <ScoreLegend />
-        )}
+      <div className="pointer-events-none absolute bottom-6 left-4 z-10 flex flex-col gap-2 md:bottom-8 md:left-5">
+        <WalkReachLegend
+          loadingLocation={locationLoading}
+          loadingIsochrone={isochroneLoading}
+          error={legendError}
+          onRetry={legendError ? handleRetryLocation : undefined}
+        />
+        <StatusLegend
+          activeStatuses={filters.activeStatuses}
+          onToggleStatus={handleToggleStatus}
+        />
       </div>
 
       <ProjectDetailPanel
-        project={isProjectsMode ? selectedProject : null}
+        project={selectedProject}
         onClose={handleCloseProject}
-      />
-      <NeighborhoodPanel
-        neighborhood={
-          mapMode === "neighborhoods" ? selectedNeighborhood : null
-        }
-        onClose={handleCloseNeighborhood}
       />
     </div>
   );

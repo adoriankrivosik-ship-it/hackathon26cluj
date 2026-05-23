@@ -1,60 +1,82 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Map, { Marker, NavigationControl } from "react-map-gl";
 import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject } from "@/lib/projects";
-import { projects } from "@/lib/projects";
+import type { IsochroneGeoJSON } from "@/lib/walking-isochrone";
 import { ProjectPin } from "./ProjectPin";
-import { NeighborhoodLayer } from "./NeighborhoodLayer";
-import type { MapMode } from "./MapModeToggle";
+import { UserLocationMarker } from "./UserLocationMarker";
+import { WalkingIsochroneLayer } from "./WalkingIsochroneLayer";
 
 import "mapbox-gl/dist/mapbox-gl.css";
 
-const CLUJ_CENTER = { longitude: 23.5965, latitude: 46.7712, zoom: 13 };
+const CLUJ_CENTER = {
+  longitude: 23.5965,
+  latitude: 46.7712,
+  zoom: 13,
+};
 
 export interface MapCanvasProps {
   token: string;
-  mapMode: MapMode;
+  projects: PublicProject[];
   selectedProjectId: string | null;
-  selectedNeighborhoodId: string | null;
   visibleProjectIds: Set<string>;
-  isProjectsMode: boolean;
+  userLocation: [number, number] | null;
+  userLocationLoading: boolean;
+  isochrone: IsochroneGeoJSON | null;
   onMapClick: (e: MapLayerMouseEvent) => void;
-  onMapMouseMove: (e: MapLayerMouseEvent) => void;
   onSelectProject: (project: PublicProject) => void;
 }
 
 export default function MapCanvas({
   token,
-  mapMode,
+  projects,
   selectedProjectId,
-  selectedNeighborhoodId,
   visibleProjectIds,
-  isProjectsMode,
+  userLocation,
+  userLocationLoading,
+  isochrone,
   onMapClick,
-  onMapMouseMove,
   onSelectProject,
 }: MapCanvasProps) {
+  const [viewState, setViewState] = useState(CLUJ_CENTER);
+  const [didFlyToUser, setDidFlyToUser] = useState(false);
+
+  useEffect(() => {
+    if (!userLocation || didFlyToUser) return;
+    setViewState({
+      longitude: userLocation[0],
+      latitude: userLocation[1],
+      zoom: 14,
+    });
+    setDidFlyToUser(true);
+  }, [userLocation, didFlyToUser]);
+
   return (
     <Map
+      {...viewState}
+      onMove={(evt) => setViewState(evt.viewState)}
       mapboxAccessToken={token}
-      initialViewState={CLUJ_CENTER}
       mapStyle="mapbox://styles/mapbox/light-v11"
       style={{ width: "100%", height: "100%" }}
       onClick={onMapClick}
-      onMouseMove={onMapMouseMove}
-      interactiveLayerIds={
-        mapMode === "neighborhoods" ? ["neighborhood-fill"] : undefined
-      }
       attributionControl={true}
       reuseMaps
     >
       <NavigationControl position="top-left" showCompass={false} />
 
-      <NeighborhoodLayer
-        visible={mapMode === "neighborhoods"}
-        selectedId={selectedNeighborhoodId}
-      />
+      <WalkingIsochroneLayer geojson={isochrone} />
+
+      {userLocation && (
+        <Marker
+          longitude={userLocation[0]}
+          latitude={userLocation[1]}
+          anchor="center"
+        >
+          <UserLocationMarker loading={userLocationLoading} />
+        </Marker>
+      )}
 
       {projects.map((project) => (
         <Marker
@@ -66,7 +88,7 @@ export default function MapCanvas({
           <ProjectPin
             project={project}
             isSelected={selectedProjectId === project.id}
-            isVisible={isProjectsMode && visibleProjectIds.has(project.id)}
+            isVisible={visibleProjectIds.has(project.id)}
             onSelect={onSelectProject}
           />
         </Marker>

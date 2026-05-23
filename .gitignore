@@ -79,6 +79,12 @@ web_modules/
 .next
 out
 
+# Wrangler local D1 state
+.wrangler
+
+# Local SQLite dev database (better-sqlite3)
+.dev.db
+
 # Nuxt.js build / generate output
 .nuxt
 dist
