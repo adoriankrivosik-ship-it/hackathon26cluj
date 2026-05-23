@@ -6,6 +6,7 @@ import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject } from "@/lib/projects";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
 import type { WalkScoreAmenity } from "@/lib/walkscore-types";
+import { WALK_AMENITY_INTERACTIVE_LAYERS } from "@/lib/walk-amenity-geojson";
 import { ProjectPin } from "./ProjectPin";
 import { WalkScoreLayer } from "./WalkScoreLayer";
 import type { MapMode } from "./MapModeToggle";
@@ -46,6 +47,17 @@ export default function MapCanvas({
   const [viewState, setViewState] = useState(CLUJ_CENTER);
   const isProjectsMode = mapMode === "projects";
 
+  const handleMapClick = (e: MapLayerMouseEvent) => {
+    if (!isProjectsMode) {
+      const map = e.target;
+      const hitAmenity = map.queryRenderedFeatures(e.point, {
+        layers: [...WALK_AMENITY_INTERACTIVE_LAYERS],
+      });
+      if (hitAmenity.length > 0) return;
+    }
+    onMapClick(e);
+  };
+
   return (
     <Map
       {...viewState}
@@ -53,7 +65,7 @@ export default function MapCanvas({
       mapboxAccessToken={token}
       mapStyle="mapbox://styles/mapbox/light-v11"
       style={{ width: "100%", height: "100%" }}
-      onClick={onMapClick}
+      onClick={handleMapClick}
       cursor={isProjectsMode ? undefined : "crosshair"}
       attributionControl={true}
       reuseMaps

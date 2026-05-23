@@ -164,6 +164,16 @@ const OSM_SELECTORS = [
 
   '["leisure"="pitch"]',
 
+  '["amenity"="bank"]',
+
+  '["amenity"="atm"]',
+
+  '["amenity"="restaurant"]',
+
+  '["amenity"="cafe"]',
+
+  '["amenity"="fast_food"]',
+
 ] as const;
 
 
@@ -309,6 +319,38 @@ function categorizeElement(tags: Record<string, string>): AmenityClassification 
   if (tags.amenity === "arts_centre") {
 
     return { category: "culture", subcategory: "arts_centre" };
+
+  }
+
+
+
+  if (tags.amenity === "bank") {
+
+    return { category: "banking", subcategory: "bank" };
+
+  }
+
+  if (tags.amenity === "atm") {
+
+    return { category: "banking", subcategory: "atm" };
+
+  }
+
+  if (tags.amenity === "restaurant") {
+
+    return { category: "food", subcategory: "restaurant" };
+
+  }
+
+  if (tags.amenity === "cafe") {
+
+    return { category: "food", subcategory: "cafe" };
+
+  }
+
+  if (tags.amenity === "fast_food") {
+
+    return { category: "food", subcategory: "fast_food" };
 
   }
 

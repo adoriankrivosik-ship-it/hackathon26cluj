@@ -1,25 +1,18 @@
 "use client";
 
-import { Marker } from "react-map-gl";
+import { useCallback, useEffect, useState } from "react";
+import { Marker, Popup } from "react-map-gl";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
-import { WALK_CATEGORIES } from "@/lib/walkscore-config";
+import { amenityKey } from "@/lib/walk-amenity-geojson";
 import type { WalkScoreAmenity } from "@/lib/walkscore-types";
+import { WalkAmenityClusterLayer } from "./walk-amenity/WalkAmenityClusterLayer";
+import { WalkAmenityPopupContent } from "./walk-amenity/WalkAmenityPopup";
 import { WalkingIsochroneLayer } from "./WalkingIsochroneLayer";
 
 interface WalkScoreLayerProps {
   dropPin: [number, number] | null;
   isochrone: IsochroneGeoJSON | null;
   amenities: WalkScoreAmenity[];
-}
-
-function AmenityDot({ color }: { color: string }) {
-  return (
-    <span
-      className="block h-2.5 w-2.5 rounded-full border border-white shadow-sm"
-      style={{ backgroundColor: color }}
-      aria-hidden="true"
-    />
-  );
 }
 
 function DropPinMarker() {
@@ -36,13 +29,38 @@ export function WalkScoreLayer({
   isochrone,
   amenities,
 }: WalkScoreLayerProps) {
-  const colorByKey = Object.fromEntries(
-    WALK_CATEGORIES.map((c) => [c.key, c.color]),
-  ) as Record<string, string>;
+  const [openAmenityKey, setOpenAmenityKey] = useState<string | null>(null);
+  const [hoverAmenity, setHoverAmenity] = useState<WalkScoreAmenity | null>(
+    null,
+  );
+
+  const openAmenity =
+    amenities.find((a) => amenityKey(a) === openAmenityKey) ?? null;
+
+  const handleAmenityClick = useCallback((amenity: WalkScoreAmenity) => {
+    const key = amenityKey(amenity);
+    setOpenAmenityKey((prev) => (prev === key ? null : key));
+    setHoverAmenity(null);
+  }, []);
+
+  const handleClosePopup = useCallback(() => {
+    setOpenAmenityKey(null);
+  }, []);
+
+  useEffect(() => {
+    setOpenAmenityKey(null);
+    setHoverAmenity(null);
+  }, [amenities, dropPin]);
 
   return (
     <>
       <WalkingIsochroneLayer geojson={isochrone} />
+
+      <WalkAmenityClusterLayer
+        amenities={amenities}
+        onAmenityClick={handleAmenityClick}
+        onHoverAmenity={setHoverAmenity}
+      />
 
       {dropPin && (
         <Marker longitude={dropPin[0]} latitude={dropPin[1]} anchor="center">
@@ -50,16 +68,40 @@ export function WalkScoreLayer({
         </Marker>
       )}
 
-      {amenities.map((a, i) => (
-        <Marker
-          key={`${a.category}-${a.lng}-${a.lat}-${i}`}
-          longitude={a.lng}
-          latitude={a.lat}
-          anchor="center"
+      {hoverAmenity && !openAmenity && (
+        <Popup
+          longitude={hoverAmenity.lng}
+          latitude={hoverAmenity.lat}
+          anchor="bottom"
+          offset={14}
+          closeButton={false}
+          closeOnClick={false}
+          className="walk-amenity-hover-popup pointer-events-none"
         >
-          <AmenityDot color={colorByKey[a.category] ?? "#6b7280"} />
-        </Marker>
-      ))}
+          <p className="px-2 py-1 text-xs font-medium text-gray-900">
+            {hoverAmenity.name}
+          </p>
+        </Popup>
+      )}
+
+      {openAmenity && (
+        <Popup
+          longitude={openAmenity.lng}
+          latitude={openAmenity.lat}
+          anchor="bottom"
+          offset={16}
+          closeOnClick
+          closeButton={false}
+          onClose={handleClosePopup}
+          className="walk-amenity-popup"
+          maxWidth="280px"
+        >
+          <WalkAmenityPopupContent
+            amenity={openAmenity}
+            onClose={handleClosePopup}
+          />
+        </Popup>
+      )}
     </>
   );
 }

@@ -16,6 +16,8 @@ const COUNT_CAPS = {
   transport: 12,
   parks: 5,
   sport: 5,
+  banking: 4,
+  food: 8,
 };
 
 function scoreFromCount(count, cap) {
@@ -77,6 +79,11 @@ const seeds = [
       ["culture", "library", "Bibliotecă", 0.002, 0.002],
       ["sport", "fitness_centre", "Sală fitness", 0.003, -0.001],
       ["sport", "sports_centre", "Polivalentă", -0.002, 0.002],
+      ["banking", "bank", "BCR", 0.001, 0.002],
+      ["banking", "atm", "ATM", -0.001, 0.001],
+      ["food", "restaurant", "Restaurant", 0.002, 0.001],
+      ["food", "cafe", "Cafenea", -0.002, 0.002],
+      ["food", "fast_food", "Fast-food", 0.001, -0.001],
     ],
   },
   {
@@ -94,6 +101,8 @@ const seeds = [
       ["health", "pharmacy", "Farmacie", -0.001, 0.002],
       ["parks", null, "Parc mic", 0.002, 0.002],
       ["sport", "pitch", "Teren sport", 0.003, 0.001],
+      ["banking", "atm", "ATM", -0.002, 0.001],
+      ["food", "fast_food", "Fast-food", 0.001, -0.002],
     ],
   },
   {
@@ -109,6 +118,7 @@ const seeds = [
       ["education", "school", "Școală", 0.001, -0.002],
       ["health", "pharmacy", "Farmacie", -0.002, 0.001],
       ["parks", null, "Spațiu verde", 0.002, 0.002],
+      ["food", "cafe", "Cafenea", 0.001, 0.001],
     ],
   },
   {
@@ -129,6 +139,9 @@ const seeds = [
       ["education", "kindergarten", "Grădiniță", -0.002, 0.002],
       ["sport", "fitness_centre", "Fitness", 0.003, 0.001],
       ["culture", "library", "Bibliotecă", -0.002, 0.001],
+      ["banking", "bank", "Bancă", 0.002, 0.001],
+      ["food", "restaurant", "Restaurant", -0.001, 0.002],
+      ["food", "cafe", "Cafenea", 0.002, -0.001],
     ],
   },
 ];

@@ -29,3 +29,23 @@
     bottom: 5.5rem;
   }
 }
+
+.walk-amenity-popup.mapboxgl-popup .mapboxgl-popup-content {
+  padding: 0;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.18);
+}
+
+.walk-amenity-popup.mapboxgl-popup .mapboxgl-popup-tip {
+  border-top-color: #fff;
+}
+
+.walk-amenity-hover-popup.mapboxgl-popup .mapboxgl-popup-content {
+  padding: 0;
+  border-radius: 0.375rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.walk-amenity-hover-popup.mapboxgl-popup .mapboxgl-popup-tip {
+  border-top-color: #fff;
+}
