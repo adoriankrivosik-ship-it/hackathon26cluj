@@ -10,6 +10,8 @@ import type {
 } from "./admin-types";
 import { getDatabase } from "./get-database-node";
 
+export { getDatabase } from "./get-database-node";
+
 export function generateProjectId(): string {
   return `proj_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
