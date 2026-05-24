@@ -190,9 +190,19 @@ function buildMockWalkPins(): WalkPinRow[] {
   });
 }
 
-/** In-memory D1 shim for edge routes in local dev (walkscore cache). */
+/** In-memory D1 shim for edge routes in local dev (walkscore cache, saved pins). */
 export function createMockD1Database(): D1Database {
   const walkPins = buildMockWalkPins();
+  const savedPins: {
+    id: string;
+    user_email: string;
+    lng: number;
+    lat: number;
+    label: string | null;
+    overall_score: number | null;
+    scores_json: string | null;
+    created_at: string;
+  }[] = [];
 
   return {
     prepare(query: string) {
@@ -203,6 +213,16 @@ export function createMockD1Database(): D1Database {
           all: async <T>() => {
             if (normalized.includes("from walk_pins")) {
               return { results: walkPins as T[], success: true as const };
+            }
+            if (
+              normalized.includes("from saved_pins") &&
+              normalized.includes("user_email")
+            ) {
+              const email = values[0] as string;
+              const results = savedPins
+                .filter((p) => p.user_email === email)
+                .sort((a, b) => b.created_at.localeCompare(a.created_at));
+              return { results: results as T[], success: true as const };
             }
             return { results: [] as T[], success: true as const };
           },
@@ -220,7 +240,31 @@ export function createMockD1Database(): D1Database {
                 created_at: values[7] as string,
               });
             }
-            return { success: true as const };
+            if (normalized.includes("insert into saved_pins")) {
+              savedPins.push({
+                id: values[0] as string,
+                user_email: values[1] as string,
+                lng: values[2] as number,
+                lat: values[3] as number,
+                label: values[4] as string | null,
+                overall_score: values[5] as number | null,
+                scores_json: values[6] as string | null,
+                created_at: values[7] as string,
+              });
+            }
+            if (normalized.includes("delete from saved_pins")) {
+              const id = values[0] as string;
+              const email = values[1] as string;
+              const idx = savedPins.findIndex(
+                (p) => p.id === id && p.user_email === email,
+              );
+              if (idx >= 0) savedPins.splice(idx, 1);
+              return {
+                success: true as const,
+                meta: { changes: idx >= 0 ? 1 : 0 },
+              };
+            }
+            return { success: true as const, meta: { changes: 0 } };
           },
         }),
         all: async <T>() => {
@@ -230,7 +274,7 @@ export function createMockD1Database(): D1Database {
           return { results: [] as T[], success: true as const };
         },
         first: async <T>() => null as T | null,
-        run: async () => ({ success: true as const }),
+        run: async () => ({ success: true as const, meta: { changes: 0 } }),
       };
     },
   } as unknown as D1Database;

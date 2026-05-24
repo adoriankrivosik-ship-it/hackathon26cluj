@@ -23,10 +23,13 @@ function stmtRunner(stmt: Stmt, args: unknown[]) {
       success: true as const,
     }),
     first: async <T>() => (stmt.get(...args) as T | undefined) ?? null,
-    run: async () => {
-      stmt.run(...args);
-      return { success: true as const };
-    },
+        run: async () => {
+          const info = stmt.run(...args);
+          return {
+            success: true as const,
+            meta: { changes: info.changes },
+          };
+        },
   };
 }
 
@@ -45,8 +48,11 @@ export function createSqliteD1Adapter(): D1Database {
         }),
         first: async <T>() => (stmt.get() as T | undefined) ?? null,
         run: async () => {
-          stmt.run();
-          return { success: true as const };
+          const info = stmt.run();
+          return {
+            success: true as const,
+            meta: { changes: info.changes },
+          };
         },
       };
     },

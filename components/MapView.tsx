@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject, ProjectStatus } from "@/lib/projects";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
+import { distanceMeters } from "@/lib/pin-distance";
+import type { DbSavedPin } from "@/lib/saved-pins-types";
 import { getRelevantAmenityKeys } from "@/lib/walk-relevant-amenities";
 import {
   createDefaultWalkMapVisibility,
@@ -32,6 +34,8 @@ import { StatusLegend } from "./StatusLegend";
 import { MapModeToggle, type MapMode } from "./MapModeToggle";
 import { WalkScorePanel } from "./WalkScorePanel";
 import { WalkModeHint } from "./WalkModeHint";
+import { SavedPinsDrawer } from "./SavedPinsDrawer";
+import type { MapCanvasHandle } from "./MapCanvas";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
   ssr: false,
@@ -50,11 +54,18 @@ function MapLoading() {
   );
 }
 
-interface MapViewProps {
-  projects: PublicProject[];
+interface CitizenSession {
+  email: string;
+  name: string;
 }
 
-export function MapView({ projects }: MapViewProps) {
+interface MapViewProps {
+  projects: PublicProject[];
+  citizenUser?: CitizenSession | null;
+}
+
+export function MapView({ projects, citizenUser = null }: MapViewProps) {
+  const mapRef = useRef<MapCanvasHandle>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const [mounted, setMounted] = useState(false);
   const [mapMode, setMapMode] = useState<MapMode>("projects");
@@ -70,6 +81,14 @@ export function MapView({ projects }: MapViewProps) {
   const [walkMapVisibility, setWalkMapVisibility] =
     useState<WalkMapVisibility>(createDefaultWalkMapVisibility);
   const [walkRelevantOnly, setWalkRelevantOnly] = useState(false);
+
+  const [savedPins, setSavedPins] = useState<DbSavedPin[]>([]);
+  const [savedPinsLoading, setSavedPinsLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [savePinLoading, setSavePinLoading] = useState(false);
+  const [pinToast, setPinToast] = useState<string | null>(null);
+
+  const isCitizen = citizenUser !== null;
 
   const visibleIds = useMemo(() => {
     const visible = filterProjects(projects, filters);
@@ -121,6 +140,95 @@ export function MapView({ projects }: MapViewProps) {
     });
   }, []);
 
+  const loadSavedPins = useCallback(async () => {
+    if (!isCitizen) return;
+    setSavedPinsLoading(true);
+    try {
+      const res = await fetch("/api/pins/saved");
+      if (res.ok) {
+        const data = (await res.json()) as { pins: DbSavedPin[] };
+        setSavedPins(data.pins ?? []);
+      }
+    } finally {
+      setSavedPinsLoading(false);
+    }
+  }, [isCitizen]);
+
+  useEffect(() => {
+    void loadSavedPins();
+  }, [loadSavedPins]);
+
+  useEffect(() => {
+    if (!pinToast) return;
+    const id = setTimeout(() => setPinToast(null), 2500);
+    return () => clearTimeout(id);
+  }, [pinToast]);
+
+  const matchingSavedPin = useMemo(() => {
+    if (!walkDropPin || !isCitizen) return null;
+    const [lng, lat] = walkDropPin;
+    for (const pin of savedPins) {
+      if (distanceMeters(lng, lat, pin.lng, pin.lat) <= 50) {
+        return pin;
+      }
+    }
+    return null;
+  }, [walkDropPin, savedPins, isCitizen]);
+
+  const handleToggleSavePin = useCallback(async () => {
+    if (!isCitizen || !walkDropPin || !walkResult) return;
+    setSavePinLoading(true);
+    try {
+      if (matchingSavedPin) {
+        const res = await fetch("/api/pins/save", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: matchingSavedPin.id }),
+        });
+        if (res.ok) {
+          setSavedPins((prev) =>
+            prev.filter((p) => p.id !== matchingSavedPin.id),
+          );
+          setPinToast("Pin eliminat");
+        }
+      } else {
+        const [lng, lat] = walkDropPin;
+        const res = await fetch("/api/pins/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lng,
+            lat,
+            overall_score: walkResult.overallScore,
+            scores_json: walkResult.scores,
+          }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { pin: DbSavedPin };
+          setSavedPins((prev) => [data.pin, ...prev]);
+          setPinToast("Pin salvat!");
+        }
+      }
+    } finally {
+      setSavePinLoading(false);
+    }
+  }, [isCitizen, walkDropPin, walkResult, matchingSavedPin]);
+
+  const handleDeleteSavedPin = useCallback(
+    async (id: string) => {
+      const res = await fetch("/api/pins/save", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) {
+        setSavedPins((prev) => prev.filter((p) => p.id !== id));
+        setPinToast("Pin eliminat");
+      }
+    },
+    [],
+  );
+
   const handleModeChange = useCallback((mode: MapMode) => {
     setMapMode(mode);
     setSelectedProject(null);
@@ -157,6 +265,18 @@ export function MapView({ projects }: MapViewProps) {
       setWalkLoading(false);
     }
   }, []);
+
+  const handleSelectSavedPin = useCallback(
+    (pin: DbSavedPin) => {
+      setMapMode("walkscore");
+      setSelectedProject(null);
+      mapRef.current?.flyTo(pin.lng, pin.lat);
+      setWalkDropPin([pin.lng, pin.lat]);
+      void fetchWalkScore(pin.lng, pin.lat);
+      setDrawerOpen(false);
+    },
+    [fetchWalkScore],
+  );
 
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
@@ -243,6 +363,7 @@ export function MapView({ projects }: MapViewProps) {
   return (
     <div className="relative h-screen w-full">
       <MapCanvas
+        ref={mapRef}
         token={token}
         mapMode={mapMode}
         projects={projects}
@@ -267,6 +388,16 @@ export function MapView({ projects }: MapViewProps) {
               <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
                 Cluj-Napoca — transparență civică
               </p>
+              {isCitizen && (
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A] transition-colors hover:border-[#F0A500] hover:text-[#F0A500]"
+                >
+                  <span aria-hidden="true">❤️</span>
+                  Pinii mei
+                </button>
+              )}
               <Link
                 href="/admin"
                 className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
@@ -288,6 +419,26 @@ export function MapView({ projects }: MapViewProps) {
           )}
         </div>
       </div>
+
+      {pinToast && (
+        <div
+          className="pointer-events-none fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#0D1B2A] px-4 py-2 text-sm font-medium text-white shadow-lg md:bottom-8"
+          role="status"
+        >
+          {pinToast}
+        </div>
+      )}
+
+      {isCitizen && (
+        <SavedPinsDrawer
+          open={drawerOpen}
+          pins={savedPins}
+          loading={savedPinsLoading}
+          onClose={() => setDrawerOpen(false)}
+          onSelectPin={handleSelectSavedPin}
+          onDeletePin={handleDeleteSavedPin}
+        />
+      )}
 
       <div className="pointer-events-none absolute bottom-6 left-4 z-10 flex flex-col gap-2 md:bottom-8 md:left-5">
         {isProjectsMode ? (
@@ -317,6 +468,10 @@ export function MapView({ projects }: MapViewProps) {
         onRelevantOnlyChange={setWalkRelevantOnly}
         visibleOnMapCount={walkAmenities.length}
         onClose={handleCloseWalkPanel}
+        showSaveHeart={isCitizen}
+        isSaved={matchingSavedPin !== null}
+        saveLoading={savePinLoading}
+        onToggleSave={() => void handleToggleSavePin()}
       />
     </div>
   );

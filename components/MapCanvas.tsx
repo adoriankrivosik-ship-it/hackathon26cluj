@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import Map, { Marker, NavigationControl, Source, Layer } from "react-map-gl";
-import type { MapLayerMouseEvent } from "react-map-gl";
+import type { MapLayerMouseEvent, MapRef } from "react-map-gl";
 import type { PublicProject } from "@/lib/projects";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
 import type { WalkScoreAmenity } from "@/lib/walkscore-types";
@@ -34,22 +34,41 @@ export interface MapCanvasProps {
   onSelectProject: (project: PublicProject) => void;
 }
 
-export default function MapCanvas({
-  token,
-  mapMode,
-  projects,
-  selectedProjectId,
-  visibleProjectIds,
-  walkDropPin,
-  walkIsochrone,
-  walkAmenities,
-  walkRelevantOnly,
-  walkRelevantKeys,
-  onMapClick,
-  onSelectProject,
-}: MapCanvasProps) {
+export interface MapCanvasHandle {
+  flyTo: (lng: number, lat: number) => void;
+}
+
+const MapCanvas = forwardRef<MapCanvasHandle, MapCanvasProps>(
+  function MapCanvas(
+    {
+      token,
+      mapMode,
+      projects,
+      selectedProjectId,
+      visibleProjectIds,
+      walkDropPin,
+      walkIsochrone,
+      walkAmenities,
+      walkRelevantOnly,
+      walkRelevantKeys,
+      onMapClick,
+      onSelectProject,
+    },
+    ref,
+  ) {
+  const mapRef = useRef<MapRef>(null);
   const [viewState, setViewState] = useState(CLUJ_CENTER);
   const isProjectsMode = mapMode === "projects";
+
+  useImperativeHandle(ref, () => ({
+    flyTo(lng: number, lat: number) {
+      mapRef.current?.flyTo({
+        center: [lng, lat],
+        zoom: 15,
+        duration: 1500,
+      });
+    },
+  }));
 
   const handleMapClick = (e: MapLayerMouseEvent) => {
     if (!isProjectsMode) {
@@ -64,6 +83,7 @@ export default function MapCanvas({
 
   return (
     <Map
+      ref={mapRef}
       {...viewState}
       onMove={(evt) => setViewState(evt.viewState)}
       mapboxAccessToken={token}
@@ -145,4 +165,7 @@ export default function MapCanvas({
         ))}
     </Map>
   );
-}
+  },
+);
+
+export default MapCanvas;

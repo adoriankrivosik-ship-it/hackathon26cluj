@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import {
   createSessionToken,
+  getRedirectForRole,
   sessionCookieOptions,
 } from "@/lib/auth";
 import {
@@ -42,7 +43,10 @@ export async function POST(request: Request) {
   cookieStore.set(clearPending2faCookieOptions());
   cookieStore.set(sessionCookieOptions(token));
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    redirect: getRedirectForRole(pending.role),
+  });
 }
 
 export async function DELETE() {

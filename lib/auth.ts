@@ -51,7 +51,38 @@ function getAuthUsers(): AuthUserRecord[] {
       name: "Administrator",
       role: "admin",
     },
+    {
+      id: "user-citizen-1",
+      email: "ion.popescu@gmail.com",
+      password: "demo123",
+      name: "Ion Popescu",
+      role: "citizen",
+    },
+    {
+      id: "user-citizen-2",
+      email: "ana.muresan@gmail.com",
+      password: "demo123",
+      name: "Ana Mureșan",
+      role: "citizen",
+    },
   ];
+}
+
+export function getRedirectForRole(role: UserRole): string {
+  if (role === "citizen") return "/harta";
+  return "/admin/projects";
+}
+
+export function isCitizenRole(role: string): boolean {
+  return role === "citizen";
+}
+
+export async function requireCitizenSession(): Promise<SessionUser> {
+  const session = await getSession();
+  if (!session || !isCitizenRole(session.role)) {
+    throw new Error("UNAUTHORIZED");
+  }
+  return session;
 }
 
 export function verifyCredentials(

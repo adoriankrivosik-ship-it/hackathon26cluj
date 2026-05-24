@@ -29,6 +29,10 @@ interface WalkScorePanelProps {
   onRelevantOnlyChange: (value: boolean) => void;
   visibleOnMapCount: number;
   onClose: () => void;
+  showSaveHeart?: boolean;
+  isSaved?: boolean;
+  saveLoading?: boolean;
+  onToggleSave?: () => void;
 }
 
 export function WalkScorePanel({
@@ -44,6 +48,10 @@ export function WalkScorePanel({
   onRelevantOnlyChange,
   visibleOnMapCount,
   onClose,
+  showSaveHeart = false,
+  isSaved = false,
+  saveLoading = false,
+  onToggleSave,
 }: WalkScorePanelProps) {
   const isOpen = loading || error !== null || result !== null;
 
@@ -99,12 +107,39 @@ export function WalkScorePanel({
               <p className="mt-1 text-xs text-gray-500">Rezultat din cache</p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            aria-label="Închide panoul"
-          >
+          <div className="flex shrink-0 items-center gap-1">
+            {showSaveHeart && result && !loading && !error && (
+              <button
+                type="button"
+                onClick={onToggleSave}
+                disabled={saveLoading}
+                className={`rounded-lg p-2 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  isSaved
+                    ? "text-red-500 hover:bg-red-50"
+                    : "text-gray-400 hover:bg-gray-100 hover:text-red-400"
+                } disabled:opacity-50`}
+                aria-label={isSaved ? "Elimină pin salvat" : "Salvează pin"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  className={`h-5 w-5 transition-transform duration-200 ${
+                    isSaved ? "scale-110 fill-current" : "fill-none"
+                  }`}
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Închide panoul"
+            >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -117,6 +152,7 @@ export function WalkScorePanel({
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">

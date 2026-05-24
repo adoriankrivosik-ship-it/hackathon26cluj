@@ -275,6 +275,25 @@ export default function LandingPage() {
               Hartă
             </Link>
             <Link
+              href="/login?type=citizen"
+              className="hidden items-center gap-1.5 rounded-full border border-[#0D1B2A] px-4 py-2 text-sm font-medium text-[#0D1B2A] transition-colors hover:bg-gray-50 sm:inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Intru ca cetățean
+            </Link>
+            <Link
+              href="/login?type=admin"
+              className="hidden items-center gap-1.5 rounded-full bg-[#F0A500] px-4 py-2.5 text-sm font-semibold text-[#0D1B2A] transition-colors hover:bg-[#e09500] sm:inline-flex focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] focus-visible:ring-offset-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Intru ca funcționar / admin
+            </Link>
+            <Link
               href="/harta"
               className="rounded-full bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#F0A500] hover:text-[#0D1B2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] focus-visible:ring-offset-2"
             >

@@ -1,7 +1,5 @@
 import "server-only";
 
-import { createMockD1Database } from "./mock-d1";
-
 function isCloudflarePagesRuntime(): boolean {
   return process.env.CF_PAGES === "1";
 }
@@ -13,5 +11,6 @@ export async function getDatabase(): Promise<D1Database> {
     return getCloudflareDatabase();
   }
 
-  return createMockD1Database();
+  const { createSqliteD1Adapter } = await import("./dev-db-adapter");
+  return createSqliteD1Adapter();
 }

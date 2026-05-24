@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifyCredentials } from "@/lib/auth";
+import {
+  createSessionToken,
+  getRedirectForRole,
+  isCitizenRole,
+  sessionCookieOptions,
+  verifyCredentials,
+} from "@/lib/auth";
 import {
   createPending2faToken,
   generateTempToken,
@@ -28,6 +34,15 @@ export async function POST(request: Request) {
     );
   }
 
+  const redirect = getRedirectForRole(user.role);
+
+  if (isCitizenRole(user.role)) {
+    const token = await createSessionToken(user);
+    const cookieStore = await cookies();
+    cookieStore.set(sessionCookieOptions(token));
+    return NextResponse.json({ redirect });
+  }
+
   const tempToken = generateTempToken();
   const pendingToken = await createPending2faToken(
     pending2faFromUser(user, tempToken),
@@ -35,5 +50,5 @@ export async function POST(request: Request) {
   const cookieStore = await cookies();
   cookieStore.set(pending2faCookieOptions(pendingToken));
 
-  return NextResponse.json({ step: "2fa", tempToken });
+  return NextResponse.json({ step: "2fa", tempToken, redirect });
 }

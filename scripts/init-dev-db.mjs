@@ -75,6 +75,21 @@ if (!auditTable) {
   }
 }
 
+const savedPinsTable = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name='saved_pins'",
+  )
+  .get()?.c;
+
+if (!savedPinsTable) {
+  const sql = fs.readFileSync(
+    path.join(migrationsDir, "0005_saved_pins.sql"),
+    "utf8",
+  );
+  db.exec(sql);
+  console.log("Applied 0005_saved_pins.sql");
+}
+
 db.close();
 
 execSync("node scripts/seed-walk-pins.mjs", { stdio: "inherit", cwd: root });

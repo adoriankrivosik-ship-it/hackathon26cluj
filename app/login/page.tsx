@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -14,6 +15,7 @@ const OTP_LENGTH = 6;
 const TIMER_SECONDS = 120;
 
 type Step = "credentials" | "2fa";
+type LoginType = "citizen" | "admin";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -25,6 +27,79 @@ function formatTimer(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function PersonIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+function LoginTypePicker() {
+  return (
+    <div className="space-y-4">
+      <p className="text-center text-sm text-gray-500">
+        Alege tipul de cont
+      </p>
+      <Link
+        href="/login?type=citizen"
+        className="flex items-center gap-3 rounded-xl border-2 border-[#0D1B2A]/15 px-4 py-4 transition-colors hover:border-[#F0A500] hover:bg-[#F0A500]/5"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#F5F7FA] text-[#0D1B2A]">
+          <PersonIcon />
+        </span>
+        <span>
+          <span className="block font-semibold text-[#0D1B2A]">
+            Intru ca cetățean
+          </span>
+          <span className="text-xs text-gray-500">
+            Salvează locații favorite pe hartă
+          </span>
+        </span>
+      </Link>
+      <Link
+        href="/login?type=admin"
+        className="flex items-center gap-3 rounded-xl bg-[#F0A500] px-4 py-4 text-[#0D1B2A] transition-opacity hover:opacity-90"
+      >
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0D1B2A]/10">
+          <ShieldIcon />
+        </span>
+        <span>
+          <span className="block font-semibold">
+            Intru ca funcționar / admin
+          </span>
+          <span className="text-xs opacity-80">Panou administrare</span>
+        </span>
+      </Link>
+    </div>
+  );
 }
 
 function OtpInput({
@@ -111,12 +186,12 @@ function OtpInput({
 function TwoFactorStep({
   email,
   password,
-  next,
+  redirectTo,
   onBack,
 }: {
   email: string;
   password: string;
-  next: string;
+  redirectTo: string;
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -156,14 +231,17 @@ function TwoFactorStep({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ code }),
         });
-        const data = (await res.json()) as { error?: string };
+        const data = (await res.json()) as {
+          error?: string;
+          redirect?: string;
+        };
         if (!res.ok) {
           setError(data.error ?? "Cod incorect. Încearcă din nou.");
           setShake(true);
           setTimeout(() => setShake(false), 500);
           return;
         }
-        router.push(next);
+        router.push(data.redirect ?? redirectTo);
         router.refresh();
       } catch {
         setError("Eroare de rețea. Încercați din nou.");
@@ -171,7 +249,7 @@ function TwoFactorStep({
         setLoading(false);
       }
     },
-    [loading, expired, next, router],
+    [loading, expired, redirectTo, router],
   );
 
   function handleDigitChange(index: number, value: string) {
@@ -294,13 +372,31 @@ function TwoFactorStep({
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/admin/projects";
+  const typeParam = searchParams.get("type");
+  const loginType: LoginType | null =
+    typeParam === "citizen" || typeParam === "admin" ? typeParam : null;
 
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [redirectTo, setRedirectTo] = useState(
+    loginType === "citizen" ? "/harta" : "/admin/projects",
+  );
+
+  const copy =
+    loginType === "citizen"
+      ? {
+          title: "Autentificare cetățean",
+          subtitle: "Salvează locațiile tale favorite pe hartă",
+          placeholder: "ion.popescu@gmail.com",
+        }
+      : {
+          title: "Autentificare panou administrare",
+          subtitle: null as string | null,
+          placeholder: "functionar@primarie.cluj",
+        };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -312,16 +408,23 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json()) as { error?: string; step?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        step?: string;
+        redirect?: string;
+      };
       if (!res.ok) {
         setError(data.error ?? "Autentificare eșuată.");
         return;
+      }
+      if (data.redirect) {
+        setRedirectTo(data.redirect);
       }
       if (data.step === "2fa") {
         setStep("2fa");
         return;
       }
-      router.push(next);
+      router.push(data.redirect ?? redirectTo);
       router.refresh();
     } catch {
       setError("Eroare de rețea. Încercați din nou.");
@@ -336,17 +439,38 @@ function LoginForm() {
     setError("");
   }
 
+  if (!loginType) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+          <div className="mb-6 text-center">
+            <Logo className="text-xl justify-center inline-block" />
+            <p className="mt-2 text-sm text-gray-500">Autentificare</p>
+          </div>
+          <LoginTypePicker />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-        <div className="mb-6 text-center">
+        <p className="mb-6 text-center">
           <Logo className="text-xl justify-center inline-block" />
           {step === "credentials" && (
-            <p className="mt-2 text-sm text-gray-500">
-              Autentificare panou administrare
-            </p>
+            <>
+              <span className="mt-2 block text-sm font-medium text-[#0D1B2A]">
+                {copy.title}
+              </span>
+              {copy.subtitle && (
+                <span className="mt-1 block text-xs text-gray-500">
+                  {copy.subtitle}
+                </span>
+              )}
+            </>
           )}
-        </div>
+        </p>
 
         <div className="relative overflow-hidden">
           <div
@@ -367,7 +491,7 @@ function LoginForm() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="functionar@primarie.cluj"
+                  placeholder={copy.placeholder}
                 />
               </div>
               <div>
@@ -394,6 +518,12 @@ function LoginForm() {
               >
                 {loading ? "Se conectează..." : "Autentificare"}
               </button>
+              <Link
+                href="/login"
+                className="block text-center text-sm text-gray-500 hover:text-[#0D1B2A]"
+              >
+                Înapoi la alegere tip cont
+              </Link>
             </form>
           </div>
 
@@ -408,7 +538,7 @@ function LoginForm() {
               <TwoFactorStep
                 email={email}
                 password={password}
-                next={next}
+                redirectTo={redirectTo}
                 onBack={handleBack}
               />
             )}
