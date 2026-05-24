@@ -65,7 +65,7 @@ Deschide [http://localhost:3000](http://localhost:3000). Mod **Scor 15 minute**:
 
 | Tabel | Migrare | Conținut |
 |-------|---------|----------|
-| `projects` | `migrations/0001_projects.sql` | Schema |
+| `projects` (+ ledger, issues, …) | `migrations/0001_schema.sql` | Schema |
 | (seed) | `migrations/0002_seed_projects.sql` | 6 proiecte |
 
 Acces: `lib/db.ts` → `loadProjects()` / `getProjects(DB)`. Dev: `better-sqlite3` + `.dev.db`. Producție (Cloudflare Pages): binding D1 via `@cloudflare/next-on-pages`. Pagina `app/page.tsx` încarcă proiectele și le trimite la `MapView`.
