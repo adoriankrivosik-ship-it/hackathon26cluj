@@ -1,26 +1,21 @@
 import "server-only";
 
 import type {
-  ProjectCategory,
-  ProjectStatus,
-  PublicProject,
-} from "./projects";
+  DbIssueReport,
+  DbLedgerEntry,
+  DbProject,
+  IssueStatusDb,
+  ProjectInput,
+  ProjectStatusDb,
+} from "./admin-types";
+import type { PublicProject, ProjectCategory, ProjectStatus } from "./projects";
 
-/** Row shape from D1 `projects` table (snake_case). */
-interface ProjectRow {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  status: string;
-  budget: number;
-  funding_source: string;
-  lng: number;
-  lat: number;
-  start_date: string;
-  planned_end_date: string;
-  progress_percent: number;
-  is_delayed: number;
+export function generateProjectId(): string {
+  return `proj_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export function generateNotificationId(): string {
+  return `notif_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
 
 interface WalkPinRow {
@@ -33,122 +28,6 @@ interface WalkPinRow {
   overall_score: number;
   created_at: string;
 }
-
-function mapRow(row: ProjectRow): PublicProject {
-  return {
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    category: row.category as ProjectCategory,
-    status: row.status as ProjectStatus,
-    budget: row.budget,
-    fundingSource: row.funding_source,
-    coordinates: [row.lng, row.lat],
-    startDate: row.start_date,
-    plannedEndDate: row.planned_end_date,
-    isDelayed: row.is_delayed === 1,
-    progressPercent: row.progress_percent,
-  };
-}
-
-const MOCK_PROJECT_ROWS: ProjectRow[] = [
-  {
-    id: "horea-rehab",
-    title: "Reabilitare Strada Horea",
-    description:
-      "Modernizarea carosabilului și a trotuarelor pe tronsonul dintre străzile Avram Iancu și Bulevardul Eroilor. Include iluminat LED, rețele subterane și benzi dedicate bicicliștilor.",
-    category: "Infrastructură rutieră",
-    status: "În lucru",
-    budget: 12450000,
-    funding_source: "Fonduri Europene (POR)",
-    lng: 23.5872,
-    lat: 46.7718,
-    start_date: "2024-03-15",
-    planned_end_date: "2025-11-30",
-    progress_percent: 62,
-    is_delayed: 1,
-  },
-  {
-    id: "piata-unirii",
-    title: "Reamenajare Piața Unirii",
-    description:
-      "Proiect de revitalizare a pieței centrale: pavaj nou, mobilier urban, zone pietonale extinse și accesibilitate pentru persoane cu dizabilități. Faza de execuție urmează după finalizarea licitației.",
-    category: "Infrastructură rutieră",
-    status: "Bugetat",
-    budget: 28300000,
-    funding_source: "Buget local + PNRR",
-    lng: 23.5889,
-    lat: 46.7713,
-    start_date: "2025-09-01",
-    planned_end_date: "2027-06-30",
-    progress_percent: 18,
-    is_delayed: 0,
-  },
-  {
-    id: "tramvai-marasti",
-    title: "Extindere linie tramvai — cartier Mărăști",
-    description:
-      "Studiu de fezabilitate și proiect tehnic pentru prelungirea liniei de tramvai spre cartierul Mărăști, cu stații noi la intersecțiile principale. Etapa curentă: consultări publice și avize urbanistice.",
-    category: "Transport public",
-    status: "Inițiat",
-    budget: 95000000,
-    funding_source: "Fonduri Europene (ITI)",
-    lng: 23.6254,
-    lat: 46.7548,
-    start_date: "2025-01-10",
-    planned_end_date: "2028-12-31",
-    progress_percent: 8,
-    is_delayed: 0,
-  },
-  {
-    id: "somes-promenada",
-    title: "Promenadă pe malul Someșului",
-    description:
-      "Amenajarea unui traseu pietonal și ciclist de-a lungul malului Someșului Mic, între Podul Elisabeta și Parcul Feroviarilor. Include zone de odihnă și plantări noi.",
-    category: "Parcuri și spații verzi",
-    status: "Finalizat",
-    budget: 6780000,
-    funding_source: "Buget local",
-    lng: 23.5748,
-    lat: 46.7681,
-    start_date: "2023-04-01",
-    planned_end_date: "2025-10-15",
-    progress_percent: 100,
-    is_delayed: 0,
-  },
-  {
-    id: "parcul-central",
-    title: "Reabilitare Parcul Central „Simion Bărnuțiu”",
-    description:
-      "Renovarea aleilor, a sistemului de irigații și a zonei de joacă din Parcul Central. Proiectul a fost aprobat, dar execuția a fost amânată din cauza procedurilor de achiziție.",
-    category: "Parcuri și spații verzi",
-    status: "Aprobat",
-    budget: 4200000,
-    funding_source: "Buget local",
-    lng: 23.5821,
-    lat: 46.7662,
-    start_date: "2024-06-01",
-    planned_end_date: "2025-08-31",
-    progress_percent: 25,
-    is_delayed: 1,
-  },
-  {
-    id: "campus-memorandumului",
-    title: "Extindere campus universitar — Strada Memorandumului",
-    description:
-      "Construcția unei clădiri noi pentru laboratoare și săli de curs la Universitatea Tehnică, cu eficiență energetică ridicată. Lucrările de fundație sunt în desfășurare.",
-    category: "Educație",
-    status: "În lucru",
-    budget: 42500000,
-    funding_source: "Fonduri Europene (POR) + cofinanțare locală",
-    lng: 23.5915,
-    lat: 46.7694,
-    start_date: "2024-11-01",
-    planned_end_date: "2026-09-30",
-    progress_percent: 48,
-    is_delayed: 0,
-  },
-];
 
 const WALK_COUNT_CAPS: Record<string, number> = {
   education: 6,
@@ -362,9 +241,6 @@ function createMockD1Database(): D1Database {
           },
         }),
         all: async <T>() => {
-          if (normalized.includes("from projects")) {
-            return { results: MOCK_PROJECT_ROWS as T[], success: true as const };
-          }
           if (normalized.includes("from walk_pins")) {
             return { results: walkPins as T[], success: true as const };
           }
@@ -381,26 +257,326 @@ function isCloudflarePagesRuntime(): boolean {
   return process.env.CF_PAGES === "1";
 }
 
-/** Load all projects from a D1 binding. */
-export async function getProjects(db: D1Database): Promise<PublicProject[]> {
-  const { results } = await db
-    .prepare("SELECT * FROM projects ORDER BY id")
-    .all<ProjectRow>();
-
-  return (results ?? []).map(mapRow);
-}
-
-/** Resolve the local/production D1 binding and fetch projects. */
-export async function loadProjects(): Promise<PublicProject[]> {
-  const db = await getDatabase();
-  return getProjects(db);
-}
-
 export async function getDatabase(): Promise<D1Database> {
   if (isCloudflarePagesRuntime()) {
-    const { getRequestContext } = await import("@cloudflare/next-on-pages");
-    return getRequestContext().env.DB;
+    const { getCloudflareDatabase } = await import("./get-database.cloudflare");
+    return getCloudflareDatabase();
   }
 
-  return createMockD1Database();
+  if (process.env.NEXT_RUNTIME === "edge") {
+    return createMockD1Database();
+  }
+
+  const { createSqliteD1Adapter } = await import("./dev-db-adapter");
+  return createSqliteD1Adapter();
+}
+
+/** Legacy public map row → PublicProject (best-effort from new schema). */
+function mapToPublicProject(row: DbProject): PublicProject {
+  const statusMap: Record<string, ProjectStatus> = {
+    planned: "Inițiat",
+    procurement: "Bugetat",
+    starting: "În lucru",
+    continuing: "În lucru",
+    finalizing: "În lucru",
+    delayed: "În lucru",
+    completed: "Finalizat",
+  };
+  const categoryMap: Record<string, ProjectCategory> = {
+    mobility: "Infrastructură rutieră",
+    education: "Educație",
+    green: "Parcuri și spații verzi",
+    social: "Utilități",
+    cultural: "Infrastructură rutieră",
+    energy: "Utilități",
+    housing: "Utilități",
+    waste: "Utilități",
+  };
+
+  const lng = row.location_lng ?? 23.59;
+  const lat = row.location_lat ?? 46.77;
+
+  return {
+    id: row.id,
+    title: row.name,
+    description: row.description_plain ?? row.description_original ?? "",
+    category: categoryMap[row.category ?? ""] ?? "Utilități",
+    status: statusMap[row.status] ?? "În lucru",
+    budget: row.budget_ron ?? 0,
+    fundingSource: row.budget_source ?? "",
+    coordinates: [lng, lat],
+    startDate: row.start_date ?? "",
+    plannedEndDate: row.end_date ?? "",
+    isDelayed: row.status === "delayed",
+    progressPercent:
+      row.status === "completed"
+        ? 100
+        : row.status === "finalizing"
+          ? 85
+          : row.status === "continuing"
+            ? 50
+            : 15,
+  };
+}
+
+export async function getPublicProjects(): Promise<PublicProject[]> {
+  const rows = await listProjects();
+  return rows.map(mapToPublicProject);
+}
+
+export async function loadProjects(): Promise<PublicProject[]> {
+  return getPublicProjects();
+}
+
+export async function listProjects(filters?: {
+  search?: string;
+  category?: string;
+  status?: string;
+}): Promise<DbProject[]> {
+  const db = await getDatabase();
+  let query = "SELECT * FROM projects WHERE 1=1";
+  const binds: unknown[] = [];
+
+  if (filters?.search) {
+    query += " AND (name LIKE ? OR description_original LIKE ? OR district LIKE ?)";
+    const q = `%${filters.search}%`;
+    binds.push(q, q, q);
+  }
+  if (filters?.category) {
+    query += " AND category = ?";
+    binds.push(filters.category);
+  }
+  if (filters?.status) {
+    query += " AND status = ?";
+    binds.push(filters.status);
+  }
+
+  query += " ORDER BY updated_at DESC, name ASC";
+
+  const stmt = db.prepare(query);
+  const { results } =
+    binds.length > 0
+      ? await stmt.bind(...binds).all<DbProject>()
+      : await stmt.all<DbProject>();
+
+  return results ?? [];
+}
+
+export async function getProjectById(id: string): Promise<DbProject | null> {
+  const db = await getDatabase();
+  return db
+    .prepare("SELECT * FROM projects WHERE id = ?")
+    .bind(id)
+    .first<DbProject>();
+}
+
+export async function createProject(input: ProjectInput): Promise<string> {
+  const db = await getDatabase();
+  const id = generateProjectId();
+  const now = new Date().toISOString();
+
+  await db
+    .prepare(
+      `INSERT INTO projects (
+        id, name, description_original, description_plain, status, category,
+        budget_ron, budget_source, responsible_institution, location_lat, location_lng,
+        address, district, start_date, end_date, source_url, source_type,
+        created_at, updated_at, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      id,
+      input.name,
+      input.description_original ?? null,
+      input.description_plain ?? null,
+      input.status,
+      input.category ?? null,
+      input.budget_ron ?? null,
+      input.budget_source ?? null,
+      input.responsible_institution ?? null,
+      input.location_lat ?? null,
+      input.location_lng ?? null,
+      input.address ?? null,
+      input.district ?? null,
+      input.start_date ?? null,
+      input.end_date ?? null,
+      input.source_url ?? null,
+      input.source_type ?? "manual",
+      now,
+      now,
+      input.created_by ?? null,
+    )
+    .run();
+
+  return id;
+}
+
+export async function updateProject(
+  id: string,
+  input: Partial<ProjectInput>,
+): Promise<void> {
+  const db = await getDatabase();
+  const existing = await getProjectById(id);
+  if (!existing) throw new Error("NOT_FOUND");
+
+  const now = new Date().toISOString();
+  await db
+    .prepare(
+      `UPDATE projects SET
+        name = ?, description_original = ?, description_plain = ?, status = ?,
+        category = ?, budget_ron = ?, budget_source = ?, responsible_institution = ?,
+        location_lat = ?, location_lng = ?, address = ?, district = ?,
+        start_date = ?, end_date = ?, source_url = ?, source_type = ?,
+        updated_at = ?
+      WHERE id = ?`,
+    )
+    .bind(
+      input.name ?? existing.name,
+      input.description_original ?? existing.description_original,
+      input.description_plain ?? existing.description_plain,
+      input.status ?? existing.status,
+      input.category ?? existing.category,
+      input.budget_ron ?? existing.budget_ron,
+      input.budget_source ?? existing.budget_source,
+      input.responsible_institution ?? existing.responsible_institution,
+      input.location_lat ?? existing.location_lat,
+      input.location_lng ?? existing.location_lng,
+      input.address ?? existing.address,
+      input.district ?? existing.district,
+      input.start_date ?? existing.start_date,
+      input.end_date ?? existing.end_date,
+      input.source_url ?? existing.source_url,
+      input.source_type ?? existing.source_type,
+      now,
+      id,
+    )
+    .run();
+}
+
+export async function updateProjectStatus(
+  id: string,
+  status: ProjectStatusDb,
+): Promise<DbProject> {
+  const db = await getDatabase();
+  const existing = await getProjectById(id);
+  if (!existing) throw new Error("NOT_FOUND");
+  const now = new Date().toISOString();
+  await db
+    .prepare("UPDATE projects SET status = ?, updated_at = ? WHERE id = ?")
+    .bind(status, now, id)
+    .run();
+  return { ...existing, status, updated_at: now };
+}
+
+export async function setProjectPlainSummary(
+  id: string,
+  plain: string,
+): Promise<void> {
+  const db = await getDatabase();
+  await db
+    .prepare(
+      "UPDATE projects SET description_plain = ?, updated_at = ? WHERE id = ?",
+    )
+    .bind(plain, new Date().toISOString(), id)
+    .run();
+}
+
+export async function listIssueReports(
+  statusFilter?: IssueStatusDb | "all",
+): Promise<DbIssueReport[]> {
+  const db = await getDatabase();
+  let query = "SELECT * FROM issue_reports WHERE 1=1";
+  const binds: unknown[] = [];
+
+  if (statusFilter && statusFilter !== "all") {
+    query += " AND status = ?";
+    binds.push(statusFilter);
+  }
+
+  query += " ORDER BY submitted_at DESC, title ASC";
+
+  const stmt = db.prepare(query);
+  const { results } =
+    binds.length > 0
+      ? await stmt.bind(...binds).all<DbIssueReport>()
+      : await stmt.all<DbIssueReport>();
+
+  return results ?? [];
+}
+
+export async function getIssueReportById(
+  id: string,
+): Promise<DbIssueReport | null> {
+  const db = await getDatabase();
+  return db
+    .prepare("SELECT * FROM issue_reports WHERE id = ?")
+    .bind(id)
+    .first<DbIssueReport>();
+}
+
+export async function updateIssueReportStatus(
+  id: string,
+  status: IssueStatusDb,
+  resolutionNote?: string | null,
+): Promise<DbIssueReport> {
+  const db = await getDatabase();
+  const existing = await getIssueReportById(id);
+  if (!existing) throw new Error("NOT_FOUND");
+
+  const resolvedAt = status === "resolved" ? new Date().toISOString() : null;
+
+  await db
+    .prepare(
+      `UPDATE issue_reports SET status = ?, resolution_note = ?, resolved_at = ? WHERE id = ?`,
+    )
+    .bind(status, resolutionNote ?? existing.resolution_note, resolvedAt, id)
+    .run();
+
+  return {
+    ...existing,
+    status,
+    resolution_note: resolutionNote ?? existing.resolution_note,
+    resolved_at: resolvedAt,
+  };
+}
+
+export async function listLedgerEntries(limit = 100): Promise<DbLedgerEntry[]> {
+  const db = await getDatabase();
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM ledger_entries ORDER BY timestamp DESC LIMIT ?`,
+    )
+    .bind(limit)
+    .all<DbLedgerEntry>();
+  return results ?? [];
+}
+
+export async function getProjectSubscribers(
+  projectId: string,
+): Promise<string[]> {
+  const db = await getDatabase();
+  const { results } = await db
+    .prepare("SELECT user_id FROM project_subscriptions WHERE project_id = ?")
+    .bind(projectId)
+    .all<{ user_id: string }>();
+  return (results ?? []).map((r) => r.user_id);
+}
+
+export async function notifyProjectSubscribers(
+  projectId: string,
+  message: string,
+): Promise<void> {
+  const db = await getDatabase();
+  const userIds = await getProjectSubscribers(projectId);
+  const now = new Date().toISOString();
+
+  for (const userId of userIds) {
+    await db
+      .prepare(
+        `INSERT INTO notifications (id, user_id, project_id, message, read, created_at)
+         VALUES (?, ?, ?, ?, 0, ?)`,
+      )
+      .bind(generateNotificationId(), userId, projectId, message, now)
+      .run();
+  }
 }

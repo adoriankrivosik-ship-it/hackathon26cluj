@@ -13,7 +13,7 @@ const dbPath = path.join(root, ".dev.db");
 const migrationsDir = path.join(root, "migrations");
 
 const files = [
-  "0001_projects.sql",
+  "0001_schema.sql",
   "0002_seed_projects.sql",
   "0003_walkscore.sql",
 ];
@@ -25,7 +25,7 @@ const projectCount = db
   .get()?.c;
 
 if (!projectCount) {
-  for (const file of ["0001_projects.sql", "0002_seed_projects.sql"]) {
+  for (const file of ["0001_schema.sql", "0002_seed_projects.sql"]) {
     const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
     db.exec(sql);
     console.log(`Applied ${file}`);
