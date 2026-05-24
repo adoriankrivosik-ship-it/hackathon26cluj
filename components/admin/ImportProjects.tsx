@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ProjectForm,
   formValuesToPayload,
   parseApiErrors,
   type ProjectFormValues,
 } from "@/components/admin/ProjectForm";
+import {
+  ImportProgress,
+  type ImportPhase,
+} from "@/components/admin/ImportProgress";
 import { useToast } from "@/components/admin/Toast";
 import type { DbProject, ExtractedProject } from "@/lib/admin-types";
 
@@ -86,69 +90,141 @@ export function ImportProjects() {
   const [tab, setTab] = useState<Tab>("url");
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<ImportPhase>("idle");
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<string>();
   const [cards, setCards] = useState<DbProject[]>([]);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    return () => {
+      if (progressTimer.current) clearInterval(progressTimer.current);
+    };
+  }, []);
+
+  function stopProgressTimer() {
+    if (progressTimer.current) {
+      clearInterval(progressTimer.current);
+      progressTimer.current = null;
+    }
+  }
+
+  function startProgressTimer(from: number, to: number, ms = 400) {
+    stopProgressTimer();
+    progressTimer.current = setInterval(() => {
+      setProgress((p) => {
+        if (p >= to) {
+          stopProgressTimer();
+          return to;
+        }
+        return Math.min(to, p + 2);
+      });
+    }, ms);
+    setProgress(from);
+  }
+
+  function resetProgress() {
+    stopProgressTimer();
+    setPhase("idle");
+    setProgress(0);
+    setStatusMessage(undefined);
+  }
+
+  async function runExtraction(
+    request: () => Promise<Response>,
+    sourceLabel: string,
+  ) {
+    setLoading(true);
+    setCards([]);
+    setPhase("fetch");
+    setStatusMessage(`Se descarcă ${sourceLabel}…`);
+    startProgressTimer(8, 35);
+
+    try {
+      setPhase("analyze");
+      setStatusMessage("AI analizează conținutul (poate dura până la 2 minute)…");
+      startProgressTimer(36, 88, 600);
+
+      const res = await request();
+      const data = (await res.json()) as {
+        error?: string;
+        hint?: string;
+        projects?: ExtractedProject[];
+      };
+
+      setPhase("finalize");
+      setStatusMessage("Se pregătesc formularele…");
+      startProgressTimer(89, 98, 200);
+
+      if (!res.ok) {
+        throw new Error(data.error ?? "Extragere eșuată");
+      }
+
+      const projects = data.projects ?? [];
+      setCards(projects.map(extractedToDbShape));
+
+      stopProgressTimer();
+      setProgress(100);
+
+      if (projects.length === 0) {
+        setPhase("error");
+        setStatusMessage(
+          data.hint ??
+            "Nu s-au găsit proiecte în document. Verificați sursa sau încercați PDF.",
+        );
+        showToast("Niciun proiect identificat.", "error");
+      } else {
+        setPhase("done");
+        setStatusMessage(
+          `${projects.length} proiect${projects.length === 1 ? "" : "e"} găsit${projects.length === 1 ? "" : "e"}. Revizuiți și salvați.`,
+        );
+        showToast(`${projects.length} proiect(e) extrase.`);
+      }
+    } catch (e) {
+      stopProgressTimer();
+      setPhase("error");
+      setProgress(0);
+      const msg =
+        e instanceof Error ? e.message : "Extragere eșuată. Încercați din nou.";
+      setStatusMessage(msg);
+      showToast(msg, "error");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function extractFromUrl() {
     if (!url.trim()) {
       showToast("Introduceți un URL.", "error");
       return;
     }
-    setLoading(true);
-    setCards([]);
-    try {
-      const res = await fetch("/api/admin/import/url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        projects?: ExtractedProject[];
-      };
-      if (!res.ok) {
-        showToast(data.error ?? "Extragere eșuată", "error");
-        return;
-      }
-      const projects = data.projects ?? [];
-      setCards(projects.map(extractedToDbShape));
-      if (projects.length === 0) {
-        showToast("Nu s-au găsit proiecte în document.", "error");
-      }
-    } finally {
-      setLoading(false);
-    }
+    await runExtraction(
+      () =>
+        fetch("/api/admin/import/url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: url.trim() }),
+        }),
+      "pagina web",
+    );
   }
 
   async function extractFromPdf(file: File) {
-    setLoading(true);
-    setCards([]);
-    try {
-      const buf = await file.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(buf).reduce(
-          (s, b) => s + String.fromCharCode(b),
-          "",
-        ),
-      );
-      const res = await fetch("/api/admin/import/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64, fileName: file.name }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        projects?: ExtractedProject[];
-      };
-      if (!res.ok) {
-        showToast(data.error ?? "Extragere eșuată", "error");
-        return;
-      }
-      const projects = data.projects ?? [];
-      setCards(projects.map(extractedToDbShape));
-    } finally {
-      setLoading(false);
-    }
+    const buf = await file.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(buf).reduce((s, b) => s + String.fromCharCode(b), ""),
+    );
+
+    await runExtraction(
+      () =>
+        fetch("/api/admin/import/pdf", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base64, fileName: file.name }),
+        }),
+      `PDF „${file.name}"`,
+    );
   }
 
   return (
@@ -158,7 +234,10 @@ export function ImportProjects() {
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => {
+              setTab(t);
+              if (!loading) resetProgress();
+            }}
             className={`border-b-2 px-4 py-2 text-sm font-medium ${
               tab === t
                 ? "border-[#F0A500] text-[#0D1B2A]"
@@ -177,7 +256,11 @@ export function ImportProjects() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://www.primariaclujnapoca.ro/..."
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            disabled={loading}
+            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:opacity-60"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !loading) extractFromUrl();
+            }}
           />
           <button
             type="button"
@@ -185,7 +268,7 @@ export function ImportProjects() {
             disabled={loading}
             className="rounded-lg bg-[#0D1B2A] px-6 py-2 text-sm font-semibold text-white hover:bg-[#1a2d42] disabled:opacity-50"
           >
-            Extrage date
+            {loading ? "Se extrage…" : "Extrage date"}
           </button>
         </div>
       ) : (
@@ -197,17 +280,18 @@ export function ImportProjects() {
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) extractFromPdf(f);
+              e.target.value = "";
             }}
-            className="text-sm"
+            className="text-sm disabled:opacity-60"
           />
         </div>
       )}
 
-      {loading && (
-        <div className="mb-6 rounded-lg bg-[#0D1B2A]/5 px-4 py-8 text-center text-[#0D1B2A]">
-          <p className="font-medium">Se extrag datele din document...</p>
-        </div>
-      )}
+      <ImportProgress
+        phase={phase}
+        progress={progress}
+        message={statusMessage}
+      />
 
       <div className="space-y-6">
         {cards.map((card, i) => (
