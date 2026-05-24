@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   transpilePackages: ["mapbox-gl", "react-map-gl"],
   serverExternalPackages: ["better-sqlite3"],
   webpack: (config) => {
