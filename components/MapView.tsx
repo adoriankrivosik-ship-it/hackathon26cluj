@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
@@ -266,6 +267,12 @@ export function MapView({ projects }: MapViewProps) {
               <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
                 Cluj-Napoca — transparență civică
               </p>
+              <Link
+                href="/admin"
+                className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
+              >
+                Panou admin
+              </Link>
             </div>
             <MapModeToggle mode={mapMode} onChange={handleModeChange} />
           </div>

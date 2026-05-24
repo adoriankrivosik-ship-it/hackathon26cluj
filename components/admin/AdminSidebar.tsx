@@ -6,10 +6,10 @@ import { Logo } from "@/components/Logo";
 import type { SessionUser } from "@/lib/auth-session";
 
 const NAV = [
+  { href: "/admin", label: "Registru audit", icon: "📜" },
   { href: "/admin/projects", label: "Proiecte", icon: "📋" },
   { href: "/admin/projects/import", label: "Import", icon: "📥" },
   { href: "/admin/reports", label: "Sesizări", icon: "📢" },
-  { href: "/admin/ledger", label: "Registru", icon: "📜" },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
@@ -43,11 +43,13 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
     mobile?: boolean;
   }) {
     const isActive =
-      href === "/admin/projects"
-        ? pathname === "/admin/projects" ||
-          (pathname.startsWith("/admin/projects/") &&
-            !pathname.startsWith("/admin/projects/import"))
-        : pathname === href || pathname.startsWith(`${href}/`);
+      href === "/admin"
+        ? pathname === "/admin"
+        : href === "/admin/projects"
+          ? pathname === "/admin/projects" ||
+            (pathname.startsWith("/admin/projects/") &&
+              !pathname.startsWith("/admin/projects/import"))
+          : pathname === href || pathname.startsWith(`${href}/`);
 
     return (
       <Link

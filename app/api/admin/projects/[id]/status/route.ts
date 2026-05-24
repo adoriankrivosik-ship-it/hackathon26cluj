@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
+import { appendAuditEntry } from "@/lib/audit-ledger";
 import { withAdminAuth } from "@/lib/api-auth";
 import type { ProjectStatusDb } from "@/lib/admin-types";
 import { statusLabel } from "@/lib/admin-mappings";
 import {
+  getDatabase,
   getProjectById,
   notifyProjectSubscribers,
   updateProjectStatus,
 } from "@/lib/db";
-import { writeLedgerEntry } from "@/lib/ledger";
 
 const STATUSES: ProjectStatusDb[] = [
   "planned",
@@ -47,14 +48,16 @@ export async function POST(
 
     await updateProjectStatus(id, newStatus);
 
-    await writeLedgerEntry({
-      projectId: id,
-      actionType: "status_updated",
+    const db = await getDatabase();
+    await appendAuditEntry(db, {
+      userId: session.id,
+      userLabel: session.name,
+      action: "UPDATE_STATUS",
+      entityType: "project",
+      entityId: id,
+      fieldChanged: "status",
       oldValue: oldStatus,
       newValue: newStatus,
-      changedBy: session.name,
-      changedByRole: session.role === "admin" ? "admin" : "civil_servant",
-      note: body.note?.trim() || null,
     });
 
     const msg = `Proiectul „${project.name}” a fost actualizat: ${statusLabel(oldStatus)} → ${statusLabel(newStatus)}.`;

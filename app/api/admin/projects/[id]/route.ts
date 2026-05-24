@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { auditProjectFieldChanges } from "@/lib/audit-project";
 import { withAdminAuth } from "@/lib/api-auth";
 import type { ProjectInput, ProjectStatusDb } from "@/lib/admin-types";
-import { getProjectById, updateProject } from "@/lib/db";
+import { getDatabase, getProjectById, updateProject } from "@/lib/db";
 import { validateProjectInput } from "@/lib/validation";
 
 export async function GET(
@@ -22,7 +23,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return withAdminAuth(async () => {
+  return withAdminAuth(async (session) => {
     const { id } = await params;
     const existing = await getProjectById(id);
     if (!existing) {
@@ -36,6 +37,14 @@ export async function PUT(
       return NextResponse.json({ errors }, { status: 400 });
     }
 
+    const db = await getDatabase();
+    await auditProjectFieldChanges(
+      db,
+      session,
+      id,
+      existing,
+      data as Partial<ProjectInput>,
+    );
     await updateProject(id, data as Partial<ProjectInput> & { status: ProjectStatusDb });
     return NextResponse.json({ ok: true });
   });

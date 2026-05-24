@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { generatePlainSummary } from "@/lib/ai";
+import { appendAuditEntry } from "@/lib/audit-ledger";
 import { withAdminAuth } from "@/lib/api-auth";
 import type { ProjectInput, ProjectStatusDb } from "@/lib/admin-types";
 import {
   createProject,
+  getDatabase,
   setProjectPlainSummary,
 } from "@/lib/db";
-import { writeLedgerEntry } from "@/lib/ledger";
 import { validateProjectInput } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -50,13 +51,16 @@ export async function POST(request: Request) {
       }
     }
 
-    await writeLedgerEntry({
-      projectId: id,
-      actionType: "project_created",
+    const db = await getDatabase();
+    await appendAuditEntry(db, {
+      userId: session.id,
+      userLabel: session.name,
+      action: "CREATE",
+      entityType: "project",
+      entityId: id,
+      fieldChanged: null,
+      oldValue: null,
       newValue: input.name,
-      changedBy: session.name,
-      changedByRole: session.role === "admin" ? "admin" : "civil_servant",
-      note: "Proiect creat din panoul de administrare",
     });
 
     return NextResponse.json({ id });

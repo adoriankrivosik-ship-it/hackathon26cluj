@@ -78,6 +78,52 @@ export function formatDateRo(iso: string | null): string {
   }).format(d);
 }
 
+export function formatDateTimeRo(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("ro-RO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}
+
+const AUDIT_ACTION_LABEL: Record<string, string> = {
+  CREATE: "Creare",
+  UPDATE_STATUS: "Actualizare status",
+  UPDATE_DETAILS: "Actualizare detalii",
+};
+
+const AUDIT_FIELD_LABEL: Record<string, string> = {
+  name: "Titlu",
+  status: "Status",
+  budget_ron: "Buget",
+  category: "Categorie",
+  budget_source: "Sursă finanțare",
+  description_original: "Descriere",
+  responsible_institution: "Instituție",
+  address: "Adresă",
+  district: "Cartier",
+  start_date: "Data start",
+  end_date: "Data final",
+  location_lat: "Latitudine",
+  location_lng: "Longitudine",
+  source_url: "URL sursă",
+  source_type: "Tip sursă",
+};
+
+export function auditActionLabel(action: string): string {
+  return AUDIT_ACTION_LABEL[action] ?? action;
+}
+
+export function auditFieldLabel(field: string | null): string {
+  if (!field) return "—";
+  return AUDIT_FIELD_LABEL[field] ?? field;
+}
+
 export const STATUS_PILL_CLASSES: Record<ProjectStatusDb, string> = {
   planned: "bg-gray-200 text-gray-800",
   procurement: "bg-blue-100 text-blue-800",

@@ -47,6 +47,34 @@ if (!walkTable) {
   console.log("Applied 0003_walkscore.sql");
 }
 
+const auditTable = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name='audit_ledger'",
+  )
+  .get()?.c;
+
+if (!auditTable) {
+  const sql = fs.readFileSync(
+    path.join(migrationsDir, "0004_ledger.sql"),
+    "utf8",
+  );
+  db.exec(sql);
+  console.log("Applied 0004_ledger.sql");
+} else {
+  const auditCount = db
+    .prepare("SELECT COUNT(*) as c FROM audit_ledger")
+    .get()?.c;
+  if (!auditCount) {
+    const seedOnly = fs
+      .readFileSync(path.join(migrationsDir, "0004_ledger.sql"), "utf8")
+      .split("-- Seed:")[1];
+    if (seedOnly) {
+      db.exec(seedOnly);
+      console.log("Seeded audit_ledger");
+    }
+  }
+}
+
 db.close();
 
 execSync("node scripts/seed-walk-pins.mjs", { stdio: "inherit", cwd: root });
