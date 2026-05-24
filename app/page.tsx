@@ -3,6 +3,7 @@ import { MapView } from "@/components/MapView";
 import { loadProjects } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
 
 export default async function HomePage() {
   const projects = await loadProjects();
