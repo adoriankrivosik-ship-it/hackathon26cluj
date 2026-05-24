@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject, ProjectStatus } from "@/lib/projects";
@@ -65,6 +66,7 @@ interface MapViewProps {
 }
 
 export function MapView({ projects, citizenUser = null }: MapViewProps) {
+  const router = useRouter();
   const mapRef = useRef<MapCanvasHandle>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const [mounted, setMounted] = useState(false);
@@ -278,6 +280,12 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     [fetchWalkScore],
   );
 
+  const handleLogout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login?type=citizen");
+    router.refresh();
+  }, [router]);
+
   const handleMapClick = useCallback(
     (e: MapLayerMouseEvent) => {
       if (mapMode === "walkscore") {
@@ -388,22 +396,32 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
               <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
                 Cluj-Napoca — transparență civică
               </p>
-              {isCitizen && (
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A] transition-colors hover:border-[#F0A500] hover:text-[#F0A500]"
+              {isCitizen ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDrawerOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A] transition-colors hover:border-[#F0A500] hover:text-[#F0A500]"
+                  >
+                    <span aria-hidden="true">❤️</span>
+                    Pinii mei
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleLogout()}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A]/80 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                  >
+                    Ieșire
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  href="/login?type=admin"
+                  className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
                 >
-                  <span aria-hidden="true">❤️</span>
-                  Pinii mei
-                </button>
+                  Panou admin
+                </Link>
               )}
-              <Link
-                href="/admin"
-                className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
-              >
-                Panou admin
-              </Link>
             </div>
             <MapModeToggle mode={mapMode} onChange={handleModeChange} />
           </div>
