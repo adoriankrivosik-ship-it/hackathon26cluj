@@ -13,6 +13,8 @@ interface WalkScoreLayerProps {
   dropPin: [number, number] | null;
   isochrone: IsochroneGeoJSON | null;
   amenities: WalkScoreAmenity[];
+  relevantOnly: boolean;
+  relevantKeys: Set<string>;
 }
 
 function DropPinMarker() {
@@ -28,6 +30,8 @@ export function WalkScoreLayer({
   dropPin,
   isochrone,
   amenities,
+  relevantOnly,
+  relevantKeys,
 }: WalkScoreLayerProps) {
   const [openAmenityKey, setOpenAmenityKey] = useState<string | null>(null);
   const [hoverAmenity, setHoverAmenity] = useState<WalkScoreAmenity | null>(
@@ -58,6 +62,8 @@ export function WalkScoreLayer({
 
       <WalkAmenityClusterLayer
         amenities={amenities}
+        relevantOnly={relevantOnly}
+        relevantKeys={relevantKeys}
         onAmenityClick={handleAmenityClick}
         onHoverAmenity={setHoverAmenity}
       />

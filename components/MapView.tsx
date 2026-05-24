@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MapLayerMouseEvent } from "react-map-gl";
 import type { PublicProject, ProjectStatus } from "@/lib/projects";
 import type { IsochroneGeoJSON } from "@/lib/isochrone";
+import { getRelevantAmenityKeys } from "@/lib/walk-relevant-amenities";
 import {
   createDefaultWalkMapVisibility,
   filterAmenitiesForMap,
@@ -67,6 +68,7 @@ export function MapView({ projects }: MapViewProps) {
   const [walkError, setWalkError] = useState<string | null>(null);
   const [walkMapVisibility, setWalkMapVisibility] =
     useState<WalkMapVisibility>(createDefaultWalkMapVisibility);
+  const [walkRelevantOnly, setWalkRelevantOnly] = useState(false);
 
   const visibleIds = useMemo(() => {
     const visible = filterProjects(projects, filters);
@@ -91,6 +93,7 @@ export function MapView({ projects }: MapViewProps) {
     setWalkLoading(false);
     setWalkDropPin(null);
     setWalkMapVisibility(createDefaultWalkMapVisibility());
+    setWalkRelevantOnly(false);
   }, []);
 
   const handleToggleWalkCategoryOnMap = useCallback((key: WalkCategoryKey) => {
@@ -127,6 +130,7 @@ export function MapView({ projects }: MapViewProps) {
     setWalkLoading(true);
     setWalkError(null);
     setWalkResult(null);
+    setWalkRelevantOnly(false);
 
     try {
       const res = await fetch(
@@ -204,6 +208,14 @@ export function MapView({ projects }: MapViewProps) {
     () => filterAmenitiesForMap(walkAmenitiesAll, walkMapVisibility),
     [walkAmenitiesAll, walkMapVisibility],
   );
+  const walkRelevantKeys = useMemo(() => {
+    if (!walkDropPin) return new Set<string>();
+    return getRelevantAmenityKeys(
+      walkAmenitiesAll,
+      walkDropPin[0],
+      walkDropPin[1],
+    );
+  }, [walkAmenitiesAll, walkDropPin]);
 
   if (!mounted) {
     return <MapLoading />;
@@ -238,6 +250,8 @@ export function MapView({ projects }: MapViewProps) {
         walkDropPin={walkDropPin}
         walkIsochrone={walkIsochrone}
         walkAmenities={walkAmenities}
+        walkRelevantOnly={walkRelevantOnly}
+        walkRelevantKeys={walkRelevantKeys}
         onMapClick={handleMapClick}
         onSelectProject={handleSelectProject}
       />
@@ -292,6 +306,8 @@ export function MapView({ projects }: MapViewProps) {
         onToggleSubcategoryOnMap={handleToggleWalkSubcategoryOnMap}
         onShowAllOnMap={handleShowAllOnMap}
         onHideAllOnMap={handleHideAllOnMap}
+        relevantOnly={walkRelevantOnly}
+        onRelevantOnlyChange={setWalkRelevantOnly}
         visibleOnMapCount={walkAmenities.length}
         onClose={handleCloseWalkPanel}
       />
