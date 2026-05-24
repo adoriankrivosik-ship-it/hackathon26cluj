@@ -44,7 +44,7 @@ function normalizeWeights(raw: CitizenProfileWeights): CitizenProfileWeights {
     const equal = 1 / WEIGHT_KEYS.length;
     return Object.fromEntries(
       WEIGHT_KEYS.map((k) => [k, equal]),
-    ) as CitizenProfileWeights;
+    ) as unknown as CitizenProfileWeights;
   }
   const out = {} as CitizenProfileWeights;
   for (const k of WEIGHT_KEYS) {
@@ -81,7 +81,7 @@ export function buildHeuristicCitizenProfile(
 ): CitizenProfile {
   const weights = Object.fromEntries(
     WEIGHT_KEYS.map((k) => [k, 0.02]),
-  ) as CitizenProfileWeights;
+  ) as unknown as CitizenProfileWeights;
 
   const ranked = answers.priorities.filter(isWeightKey);
   const excluded = ranked.length >= 2 ? ranked.slice(-2) : [];
