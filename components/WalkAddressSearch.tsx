@@ -111,7 +111,7 @@ export function WalkAddressSearch({
   return (
     <div ref={containerRef} className="relative w-full">
       <label htmlFor={`${listId}-input`} className="sr-only">
-        Caută adresă în Cluj-Napoca
+        Caută adresă în România
       </label>
       <div className="relative">
         <span
@@ -133,7 +133,7 @@ export function WalkAddressSearch({
             if (suggestions.length > 0) setOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Caută adresă în Cluj-Napoca…"
+          placeholder="Caută adresă în România…"
           autoComplete="off"
           role="combobox"
           aria-expanded={showDropdown}

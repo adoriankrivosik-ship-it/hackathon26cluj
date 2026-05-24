@@ -11,9 +11,8 @@ interface GeocodeResponse {
   features?: GeocodeFeature[];
 }
 
+/** Soft bias toward Cluj when results are otherwise similar (does not exclude other cities). */
 const CLUJ_PROXIMITY = "23.5965,46.7712";
-/** Bbox around Cluj-Napoca (west,south,east,north). */
-const CLUJ_BBOX = "23.45,46.70,23.80,46.86";
 
 export async function searchAddresses(
   query: string,
@@ -27,7 +26,6 @@ export async function searchAddresses(
     access_token: accessToken,
     country: "ro",
     proximity: CLUJ_PROXIMITY,
-    bbox: CLUJ_BBOX,
     language: "ro",
     types: "address,poi,place,locality,neighborhood",
     limit: "6",
