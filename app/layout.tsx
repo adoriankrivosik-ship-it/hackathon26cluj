@@ -8,9 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Hartă Proiecte Publice — Cluj-Napoca",
+  title: "Totulcluj.ro — Transparență urbană Cluj-Napoca",
   description:
-    "Platformă de transparență civică pentru proiectele de infrastructură publică din Cluj-Napoca.",
+    "Urmărește proiectele publice din orașul tău — unde sunt, cât costă, când se termină — direct pe hartă, în timp real.",
 };
 
 export default function RootLayout({

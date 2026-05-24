@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -7,13 +6,7 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Totulcluj.ro — Transparență urbană Cluj-Napoca",
-  description:
-    "Urmărește proiectele publice din orașul tău — unde sunt, cât costă, când se termină — direct pe hartă, în timp real.",
-};
-
-export default function LandingLayout({
+export default function HomeLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;

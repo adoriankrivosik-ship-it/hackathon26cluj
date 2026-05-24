@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { verifyCredentials } from "@/lib/auth";
 import {
-  createSessionToken,
-  sessionCookieOptions,
-  verifyCredentials,
-} from "@/lib/auth";
+  createPending2faToken,
+  generateTempToken,
+  pending2faCookieOptions,
+  pending2faFromUser,
+} from "@/lib/auth-2fa";
 
 export async function POST(request: Request) {
   const body = (await request.json()) as { email?: string; password?: string };
@@ -26,9 +28,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const token = await createSessionToken(user);
+  const tempToken = generateTempToken();
+  const pendingToken = await createPending2faToken(
+    pending2faFromUser(user, tempToken),
+  );
   const cookieStore = await cookies();
-  cookieStore.set(sessionCookieOptions(token));
+  cookieStore.set(pending2faCookieOptions(pendingToken));
 
-  return NextResponse.json({ ok: true, user: { name: user.name, role: user.role } });
+  return NextResponse.json({ step: "2fa", tempToken });
 }

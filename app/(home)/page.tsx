@@ -258,7 +258,7 @@ export default function LandingPage() {
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/landing" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] rounded-lg">
+          <Link href="/" className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] rounded-lg">
             <Logo />
           </Link>
           <nav className="flex items-center gap-2 sm:gap-3">
@@ -269,13 +269,13 @@ export default function LandingPage() {
               Despre
             </a>
             <Link
-              href="/"
+              href="/harta"
               className="hidden rounded-full px-4 py-2 text-sm font-medium text-[#1A1A2E] transition-colors hover:bg-gray-100 sm:inline-block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
             >
               Hartă
             </Link>
             <Link
-              href="/"
+              href="/harta"
               className="rounded-full bg-[#0D1B2A] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#F0A500] hover:text-[#0D1B2A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] focus-visible:ring-offset-2"
             >
               Deschide harta
@@ -300,7 +300,7 @@ export default function LandingPage() {
             </p>
             <div className="mt-10 flex w-full max-w-md flex-col items-center justify-center gap-4 sm:max-w-none sm:flex-row">
               <Link
-                href="/"
+                href="/harta"
                 className="w-full rounded-full bg-[#F0A500] px-8 py-3.5 text-center text-sm font-bold text-[#0D1B2A] transition-opacity hover:opacity-90 sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1B2A]"
               >
                 Deschide harta
@@ -440,7 +440,7 @@ export default function LandingPage() {
                 lipsesc.
               </p>
               <Link
-                href="/"
+                href="/harta"
                 className="mt-8 inline-block rounded-full border-2 border-[#F0A500] px-6 py-3 text-sm font-semibold text-[#F0A500] transition-colors hover:bg-[#F0A500]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
               >
                 Încearcă pe hartă
@@ -499,7 +499,7 @@ export default function LandingPage() {
             </div>
             <nav className="flex flex-wrap gap-x-6 gap-y-2 md:justify-center">
               <Link
-                href="/"
+                href="/harta"
                 className="text-sm text-white/60 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
               >
                 Hartă
