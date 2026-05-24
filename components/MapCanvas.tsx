@@ -28,6 +28,8 @@ export interface MapCanvasProps {
   walkDropPin: [number, number] | null;
   walkIsochrone: IsochroneGeoJSON | null;
   walkAmenities: WalkScoreAmenity[];
+  walkRelevantOnly: boolean;
+  walkRelevantKeys: Set<string>;
   onMapClick: (e: MapLayerMouseEvent) => void;
   onSelectProject: (project: PublicProject) => void;
 }
@@ -41,6 +43,8 @@ export default function MapCanvas({
   walkDropPin,
   walkIsochrone,
   walkAmenities,
+  walkRelevantOnly,
+  walkRelevantKeys,
   onMapClick,
   onSelectProject,
 }: MapCanvasProps) {
@@ -118,6 +122,8 @@ export default function MapCanvas({
           dropPin={walkDropPin}
           isochrone={walkIsochrone}
           amenities={walkAmenities}
+          relevantOnly={walkRelevantOnly}
+          relevantKeys={walkRelevantKeys}
         />
       )}
 

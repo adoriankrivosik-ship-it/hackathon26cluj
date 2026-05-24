@@ -1,7 +1,5 @@
 import "server-only";
 
-import { getRequestContext } from "@cloudflare/next-on-pages";
-
 import type {
   ProjectCategory,
   ProjectStatus,
@@ -400,6 +398,7 @@ export async function loadProjects(): Promise<PublicProject[]> {
 
 export async function getDatabase(): Promise<D1Database> {
   if (isCloudflarePagesRuntime()) {
+    const { getRequestContext } = await import("@cloudflare/next-on-pages");
     return getRequestContext().env.DB;
   }
 

@@ -21,30 +21,47 @@ import type { WalkScoreAmenity } from "@/lib/walkscore-types";
 
 interface WalkAmenityClusterLayerProps {
   amenities: WalkScoreAmenity[];
+  relevantOnly: boolean;
+  relevantKeys: Set<string>;
   onAmenityClick: (amenity: WalkScoreAmenity) => void;
   onHoverAmenity: (amenity: WalkScoreAmenity | null) => void;
 }
 
 export function WalkAmenityClusterLayer({
   amenities,
+  relevantOnly,
+  relevantKeys,
   onAmenityClick,
   onHoverAmenity,
 }: WalkAmenityClusterLayerProps) {
   const { current: mapRef } = useMap();
   const [imagesReady, setImagesReady] = useState(false);
 
+  const sourceAmenities = useMemo(() => {
+    if (!relevantOnly) return amenities;
+    return amenities.filter((a) => relevantKeys.has(amenityKey(a)));
+  }, [amenities, relevantOnly, relevantKeys]);
+
   const geojson = useMemo(
-    () => amenitiesToFeatureCollection(amenities),
-    [amenities],
+    () => amenitiesToFeatureCollection(sourceAmenities),
+    [sourceAmenities],
   );
 
   const amenityByKey = useMemo(() => {
     const map = new Map<string, WalkScoreAmenity>();
-    for (const a of amenities) {
+    for (const a of sourceAmenities) {
       map.set(amenityKey(a), a);
     }
     return map;
-  }, [amenities]);
+  }, [sourceAmenities]);
+
+  useEffect(() => {
+    const map = mapRef?.getMap();
+    if (!map) return;
+
+    const source = map.getSource(WALK_AMENITY_SOURCE_ID) as GeoJSONSource | undefined;
+    source?.setData(geojson);
+  }, [mapRef, geojson]);
 
   useEffect(() => {
     const map = mapRef?.getMap();
@@ -64,11 +81,11 @@ export function WalkAmenityClusterLayer({
     return () => {
       cancelled = true;
     };
-  }, [mapRef, amenities.length]);
+  }, [mapRef, sourceAmenities.length]);
 
   useEffect(() => {
     const map = mapRef?.getMap();
-    if (!map || amenities.length === 0) return;
+    if (!map || sourceAmenities.length === 0) return;
 
     const resolveAmenity = (feature: Feature): WalkScoreAmenity | null => {
       const key = feature.properties?.amenityKey;
@@ -148,7 +165,7 @@ export function WalkAmenityClusterLayer({
       map.off("mouseleave", WALK_AMENITY_CLUSTER_LAYER_ID, onClusterLeave);
       map.getCanvas().style.cursor = "";
     };
-  }, [mapRef, amenities, amenityByKey, onAmenityClick, onHoverAmenity]);
+  }, [mapRef, sourceAmenities, amenityByKey, onAmenityClick, onHoverAmenity]);
 
   if (amenities.length === 0) return null;
 
@@ -216,9 +233,15 @@ export function WalkAmenityClusterLayer({
               "walk-amenity-",
               ["get", "category"],
             ],
-            "icon-size": WALK_AMENITY_ICON_SIZE,
+            "icon-size": relevantOnly
+              ? WALK_AMENITY_ICON_SIZE * 1.15
+              : WALK_AMENITY_ICON_SIZE,
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
+          }}
+          paint={{
+            "icon-opacity": 1,
+            "icon-opacity-transition": { duration: 200, delay: 0 },
           }}
         />
       )}

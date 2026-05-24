@@ -25,6 +25,8 @@ interface WalkScorePanelProps {
   onToggleSubcategoryOnMap: (subcategory: WalkSubcategoryKey) => void;
   onShowAllOnMap: () => void;
   onHideAllOnMap: () => void;
+  relevantOnly: boolean;
+  onRelevantOnlyChange: (value: boolean) => void;
   visibleOnMapCount: number;
   onClose: () => void;
 }
@@ -38,6 +40,8 @@ export function WalkScorePanel({
   onToggleSubcategoryOnMap,
   onShowAllOnMap,
   onHideAllOnMap,
+  relevantOnly,
+  onRelevantOnlyChange,
   visibleOnMapCount,
   onClose,
 }: WalkScorePanelProps) {
@@ -200,6 +204,27 @@ export function WalkScorePanel({
                   </button>
                 </div>
               </div>
+
+              <label className="mt-5 flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-2.5 transition-colors duration-200 hover:bg-gray-50">
+                <span className="text-sm font-medium text-gray-800">
+                  Arată doar cele mai relevante
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={relevantOnly}
+                  onClick={() => onRelevantOnlyChange(!relevantOnly)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    relevantOnly ? "bg-primary" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                      relevantOnly ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </label>
 
               <section
                 className="mt-5 space-y-4"

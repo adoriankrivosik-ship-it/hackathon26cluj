@@ -24,7 +24,10 @@ export function amenityKey(a: WalkScoreAmenity): string {
   return `${a.category}-${a.lng}-${a.lat}-${a.name}`;
 }
 
-export function amenitiesToFeatureCollection(amenities: WalkScoreAmenity[]) {
+export function amenitiesToFeatureCollection(
+  amenities: WalkScoreAmenity[],
+  relevantKeys?: Set<string>,
+) {
   return {
     type: "FeatureCollection" as const,
     features: amenities.map((a) => ({
@@ -38,6 +41,7 @@ export function amenitiesToFeatureCollection(amenities: WalkScoreAmenity[]) {
         category: a.category,
         subcategory: a.subcategory ?? "",
         name: a.name,
+        relevant: relevantKeys?.has(amenityKey(a)) ? 1 : 0,
       },
     })),
   };
