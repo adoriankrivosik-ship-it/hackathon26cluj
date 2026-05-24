@@ -1,6 +1,6 @@
 import { MapErrorBoundary } from "@/components/MapErrorBoundary";
 import { MapView } from "@/components/MapView";
-import { loadProjects } from "@/lib/db";
+import { loadProjects } from "@/lib/public-projects";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

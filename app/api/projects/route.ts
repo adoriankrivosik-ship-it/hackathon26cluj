@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadProjects } from "@/lib/db";
+import { loadProjects } from "@/lib/public-projects";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

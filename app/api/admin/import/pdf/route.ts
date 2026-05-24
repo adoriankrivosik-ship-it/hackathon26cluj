@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { extractProjectsFromPdfBase64 } from "@/lib/ai";
 import { withAdminAuth } from "@/lib/api-auth";
 
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
 export async function POST(request: Request) {
   return withAdminAuth(async () => {
     const body = (await request.json()) as {
