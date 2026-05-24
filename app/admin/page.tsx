@@ -5,15 +5,12 @@ import {
   formatDateTimeRo,
   statusLabel,
 } from "@/lib/admin-mappings";
-import {
-  AUDIT_LEDGER_SEED,
-  AUDIT_PROJECT_LABELS,
-  verifyAuditRows,
-  type AuditLedgerRow,
-} from "@/lib/audit-ledger-core";
+import { listAuditLedger, verifyAuditChain } from "@/lib/audit-ledger";
+import type { AuditLedgerRow } from "@/lib/audit-ledger-core";
+import { getDatabase, listProjects } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 function formatAuditValue(
   field: string | null,
@@ -28,48 +25,20 @@ function formatAuditValue(
   return value;
 }
 
-function projectLabel(entityId: string): string {
-  return AUDIT_PROJECT_LABELS[entityId] ?? entityId;
-}
-
-async function loadAuditEntries(): Promise<AuditLedgerRow[]> {
-  if (process.env.CF_PAGES === "1") {
-    const { getCloudflareDatabase } = await import("@/lib/get-database.cloudflare");
-    const db = getCloudflareDatabase();
-    const { results } = await db
-      .prepare(
-        `SELECT * FROM audit_ledger ORDER BY timestamp DESC, id DESC LIMIT 500`,
-      )
-      .all<AuditLedgerRow>();
-    if (results?.length) return results;
-  }
-
-  return [...AUDIT_LEDGER_SEED].sort((a, b) =>
-    b.timestamp.localeCompare(a.timestamp),
-  );
-}
-
-async function loadChainVerification(): Promise<{
-  valid: boolean;
-  brokenAtId: number | null;
-}> {
-  if (process.env.CF_PAGES === "1") {
-    const { getCloudflareDatabase } = await import("@/lib/get-database.cloudflare");
-    const db = getCloudflareDatabase();
-    const { results } = await db
-      .prepare(`SELECT * FROM audit_ledger ORDER BY id ASC`)
-      .all<AuditLedgerRow>();
-    if (results?.length) return verifyAuditRows(results);
-  }
-
-  return verifyAuditRows(AUDIT_LEDGER_SEED);
-}
-
 export default async function AdminAuditPage() {
-  const [entries, chain] = await Promise.all([
-    loadAuditEntries(),
-    loadChainVerification(),
+  const [entries, chain, projects] = await Promise.all([
+    listAuditLedger(500),
+    verifyAuditChain(await getDatabase()),
+    listProjects(),
   ]);
+
+  const projectLabels = Object.fromEntries(
+    projects.map((p) => [p.id, p.name]),
+  );
+
+  function projectLabel(entityId: string): string {
+    return projectLabels[entityId] ?? entityId;
+  }
 
   return (
     <div>
@@ -157,7 +126,13 @@ export default async function AdminAuditPage() {
                 </td>
               </tr>
             ) : (
-              entries.map((row) => <AuditRow key={row.id} row={row} />)
+              entries.map((row) => (
+                <AuditRow
+                  key={row.id}
+                  row={row}
+                  projectName={projectLabel(row.entity_id)}
+                />
+              ))
             )}
           </tbody>
         </table>
@@ -166,7 +141,13 @@ export default async function AdminAuditPage() {
   );
 }
 
-function AuditRow({ row }: { row: AuditLedgerRow }) {
+function AuditRow({
+  row,
+  projectName,
+}: {
+  row: AuditLedgerRow;
+  projectName: string;
+}) {
   return (
     <tr className="hover:bg-gray-50/80">
       <td
@@ -189,7 +170,7 @@ function AuditRow({ row }: { row: AuditLedgerRow }) {
         </span>
       </td>
       <td className="max-w-[140px] truncate px-3 py-3 text-gray-700 sm:max-w-none sm:px-4">
-        <span title={row.entity_id}>{projectLabel(row.entity_id)}</span>
+        <span title={row.entity_id}>{projectName}</span>
       </td>
       <td className="hidden px-3 py-3 text-gray-600 md:table-cell sm:px-4">
         {auditFieldLabel(row.field_changed)}

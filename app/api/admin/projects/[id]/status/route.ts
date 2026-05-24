@@ -46,8 +46,6 @@ export async function POST(
       return NextResponse.json({ error: "Statusul este deja setat." }, { status: 400 });
     }
 
-    await updateProjectStatus(id, newStatus);
-
     const db = await getDatabase();
     await appendAuditEntry(db, {
       userId: session.id,
@@ -59,6 +57,8 @@ export async function POST(
       oldValue: oldStatus,
       newValue: newStatus,
     });
+
+    await updateProjectStatus(id, newStatus);
 
     const msg = `Proiectul „${project.name}” a fost actualizat: ${statusLabel(oldStatus)} → ${statusLabel(newStatus)}.`;
     await notifyProjectSubscribers(id, msg);
