@@ -19,9 +19,9 @@ interface WalkScoreLayerProps {
 
 function DropPinMarker() {
   return (
-    <div className="relative flex h-8 w-8 items-center justify-center" aria-hidden="true">
-      <span className="absolute h-6 w-6 rounded-full bg-primary/25" />
-      <span className="relative h-3.5 w-3.5 rounded-full border-[3px] border-white bg-primary shadow-md" />
+    <div className="relative flex h-5 w-5 items-center justify-center" aria-hidden="true">
+      <span className="absolute h-4 w-4 rounded-full bg-primary/25" />
+      <span className="relative h-2.5 w-2.5 rounded-full border-2 border-white bg-primary shadow-md" />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   WALK_CATEGORIES,
   type WalkCategoryKey,
@@ -54,6 +54,17 @@ export function WalkScorePanel({
   onToggleSave,
 }: WalkScorePanelProps) {
   const isOpen = loading || error !== null || result !== null;
+  const [mobileMinimized, setMobileMinimized] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setMobileMinimized(false);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (loading) setMobileMinimized(false);
+  }, [loading]);
+
+  const mobileExpanded = isOpen && !mobileMinimized;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,41 +85,117 @@ export function WalkScorePanel({
     <>
       <div
         className={`fixed inset-0 z-20 bg-primary-dark/40 backdrop-blur-[2px] transition-opacity duration-panel md:hidden ${
-          isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          mobileExpanded ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
-        aria-hidden={!isOpen}
+        aria-hidden={!mobileExpanded}
         onClick={onClose}
       />
 
       <aside
         role="dialog"
-        aria-modal="true"
+        aria-modal={mobileExpanded}
         aria-labelledby="walkscore-panel-title"
         aria-busy={loading}
         aria-hidden={!isOpen}
-        className={`fixed z-30 flex flex-col bg-surface-elevated shadow-panel transition-transform duration-panel ease-out
-          inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl
+        className={`fixed z-30 flex flex-col bg-surface-elevated shadow-panel transition-[transform,max-height] duration-panel ease-out
+          inset-x-0 bottom-0 rounded-t-2xl
           md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[380px] md:rounded-none md:rounded-l-2xl
-          ${isOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-y-0 md:translate-x-full"}
+          ${
+            isOpen
+              ? mobileMinimized
+                ? "max-h-[5.25rem] translate-y-0 md:max-h-none md:translate-x-0"
+                : "max-h-[85vh] translate-y-0 md:translate-x-0"
+              : "max-h-[85vh] translate-y-full md:translate-y-0 md:translate-x-full"
+          }
         `}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-5 pb-4 pt-5 md:pt-6">
+        <button
+          type="button"
+          onClick={() =>
+            mobileMinimized ? setMobileMinimized(false) : setMobileMinimized(true)
+          }
+          className="mx-auto mt-2 flex w-full shrink-0 flex-col items-center px-5 pb-1 md:hidden"
+          aria-label={mobileMinimized ? "Extinde panoul" : "Minimizează panoul"}
+        >
+          <span className="h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
+        </button>
+
+        <div
+          className={`flex shrink-0 items-start justify-between gap-3 border-b border-gray-100 px-5 pb-4 md:pt-6 ${
+            mobileMinimized ? "pt-1" : "pt-2"
+          }`}
+        >
           <div className="min-w-0 flex-1">
             <p className="text-xs font-medium uppercase tracking-wide text-primary">
               Scor 15 minute
             </p>
-            <h2
-              id="walkscore-panel-title"
-              className="text-lg font-semibold leading-snug text-gray-900 md:text-xl"
-            >
-              Accesibilitate pe jos
-            </h2>
-            {result?.cached && (
+            <div className="flex items-center gap-2">
+              <h2
+                id="walkscore-panel-title"
+                className="text-lg font-semibold leading-snug text-gray-900 md:text-xl"
+              >
+                Accesibilitate pe jos
+              </h2>
+              {mobileMinimized && result && !loading && !error && (
+                <span
+                  className="rounded-lg px-2 py-0.5 text-sm font-bold tabular-nums text-white md:hidden"
+                  style={{ backgroundColor: overallColor }}
+                >
+                  {result.overallScore}
+                </span>
+              )}
+            </div>
+            {result?.cached && !mobileMinimized && (
               <p className="mt-1 text-xs text-gray-500">Rezultat din cache</p>
+            )}
+            {mobileMinimized && loading && (
+              <p className="mt-0.5 text-xs text-gray-500 md:hidden">
+                Se calculează…
+              </p>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            {showSaveHeart && result && !loading && !error && (
+            {!mobileMinimized && (
+              <button
+                type="button"
+                onClick={() => setMobileMinimized(true)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:hidden"
+                aria-label="Minimizează panoul"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+            )}
+            {mobileMinimized && (
+              <button
+                type="button"
+                onClick={() => setMobileMinimized(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:hidden"
+                aria-label="Extinde panoul"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-5 w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M18 15l-6-6-6 6" />
+                </svg>
+              </button>
+            )}
+            {!mobileMinimized && showSaveHeart && result && !loading && !error && (
               <button
                 type="button"
                 onClick={onToggleSave}
@@ -140,22 +227,26 @@ export function WalkScorePanel({
               className="shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label="Închide panoul"
             >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="h-5 w-5"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+        <div
+          className={`flex-1 overflow-y-auto overscroll-contain px-5 py-5 ${
+            mobileMinimized ? "hidden md:block" : ""
+          }`}
+        >
           {loading && (
             <div className="space-y-4" aria-live="polite">
               <p className="text-sm text-gray-600">
