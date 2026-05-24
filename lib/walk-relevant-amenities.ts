@@ -1,6 +1,6 @@
 import { haversineMeters } from "./geo";
 import { amenityKey } from "./walk-amenity-geojson";
-import { WALK_CATEGORIES } from "./walkscore-config";
+import { WALK_CATEGORIES, type WalkCategoryKey } from "./walkscore-config";
 import type { WalkScoreAmenity } from "./walkscore-types";
 
 interface AmenityWithDistance {
@@ -25,6 +25,7 @@ export function getRelevantAmenityKeys(
   amenities: WalkScoreAmenity[],
   pinLng: number,
   pinLat: number,
+  categoryWeights?: Partial<Record<WalkCategoryKey, number>>,
 ): Set<string> {
   const withDistance: AmenityWithDistance[] = amenities.map((amenity) => ({
     amenity,
@@ -41,9 +42,19 @@ export function getRelevantAmenityKeys(
 
   const selected = new Set<string>();
 
+  function pickCount(category: string, itemCount: number): number {
+    if (categoryWeights) {
+      const w = categoryWeights[category as WalkCategoryKey] ?? 0;
+      if (w <= 0) return 0;
+      return Math.max(1, Math.min(5, Math.ceil(w * 12)));
+    }
+    if (category === "transport") return Math.min(3, itemCount);
+    return Math.min(2, itemCount);
+  }
+
   for (const [category, items] of byCategory) {
     if (category === "transport") {
-      takeNearest(items, 3, selected);
+      takeNearest(items, pickCount(category, items.length), selected);
       continue;
     }
 
@@ -57,13 +68,17 @@ export function getRelevantAmenityKeys(
         bySubcategory.set(subKey, group);
       }
 
+      const perSub = categoryWeights
+        ? Math.max(1, Math.min(3, Math.ceil((categoryWeights[category as WalkCategoryKey] ?? 0) * 8)))
+        : 2;
+
       for (const subItems of bySubcategory.values()) {
-        takeNearest(subItems, Math.min(2, subItems.length), selected);
+        takeNearest(subItems, Math.min(perSub, subItems.length), selected);
       }
       continue;
     }
 
-    takeNearest(items, Math.min(2, items.length), selected);
+    takeNearest(items, pickCount(category, items.length), selected);
   }
 
   return selected;

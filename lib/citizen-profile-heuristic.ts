@@ -38,13 +38,39 @@ function isWeightKey(key: string): key is keyof CitizenProfileWeights {
   return WEIGHT_KEYS.includes(key as keyof CitizenProfileWeights);
 }
 
+function createEqualWeights(): CitizenProfileWeights {
+  const equal = 1 / WEIGHT_KEYS.length;
+  return {
+    education: equal,
+    health: equal,
+    parks: equal,
+    transport: equal,
+    commercial: equal,
+    culture: equal,
+    sport: equal,
+    restaurants: equal,
+    banks: equal,
+  };
+}
+
+function createBaseWeights(): CitizenProfileWeights {
+  return {
+    education: 0.02,
+    health: 0.02,
+    parks: 0.02,
+    transport: 0.02,
+    commercial: 0.02,
+    culture: 0.02,
+    sport: 0.02,
+    restaurants: 0.02,
+    banks: 0.02,
+  };
+}
+
 function normalizeWeights(raw: CitizenProfileWeights): CitizenProfileWeights {
   let sum = WEIGHT_KEYS.reduce((acc, k) => acc + raw[k], 0);
   if (sum <= 0) {
-    const equal = 1 / WEIGHT_KEYS.length;
-    return Object.fromEntries(
-      WEIGHT_KEYS.map((k) => [k, equal]),
-    ) as CitizenProfileWeights;
+    return createEqualWeights();
   }
   const out = {} as CitizenProfileWeights;
   for (const k of WEIGHT_KEYS) {
@@ -79,9 +105,7 @@ function applyTextBoosts(
 export function buildHeuristicCitizenProfile(
   answers: CitizenAnswers,
 ): CitizenProfile {
-  const weights = Object.fromEntries(
-    WEIGHT_KEYS.map((k) => [k, 0.02]),
-  ) as CitizenProfileWeights;
+  const weights = createBaseWeights();
 
   const ranked = answers.priorities.filter(isWeightKey);
   const excluded = ranked.length >= 2 ? ranked.slice(-2) : [];

@@ -12,6 +12,7 @@ import type { DbSavedPin } from "@/lib/saved-pins-types";
 import { getRelevantAmenityKeys } from "@/lib/walk-relevant-amenities";
 import {
   createDefaultWalkMapVisibility,
+  createProfileWalkMapVisibility,
   filterAmenitiesForMap,
   toggleCategoryOnMap,
   toggleSubcategoryOnMap,
@@ -35,6 +36,7 @@ import { StatusLegend } from "./StatusLegend";
 import { MapModeToggle, type MapMode } from "./MapModeToggle";
 import { WalkScorePanel } from "./WalkScorePanel";
 import { WalkModeHint } from "./WalkModeHint";
+import { WalkAddressSearch } from "./WalkAddressSearch";
 import { SavedPinsDrawer } from "./SavedPinsDrawer";
 import { CitizenProfileChatbot } from "./CitizenProfileChatbot";
 import type {
@@ -102,6 +104,7 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savePinLoading, setSavePinLoading] = useState(false);
   const [pinToast, setPinToast] = useState<string | null>(null);
+  const [walkAddressLabel, setWalkAddressLabel] = useState<string | null>(null);
 
   const [citizenProfile, setCitizenProfile] = useState<CitizenProfile | null>(
     null,
@@ -136,6 +139,7 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     setWalkError(null);
     setWalkLoading(false);
     setWalkDropPin(null);
+    setWalkAddressLabel(null);
     setWalkMapVisibility(createDefaultWalkMapVisibility());
     setWalkRelevantOnly(false);
   }, []);
@@ -338,6 +342,7 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     setMapMode(mode);
     setSelectedProject(null);
     handleCloseWalkPanel();
+    setWalkAddressLabel(null);
   }, [handleCloseWalkPanel]);
 
   const fetchWalkScore = useCallback(
@@ -381,7 +386,15 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
         }
 
         setWalkResult(data);
-        setWalkMapVisibility(createDefaultWalkMapVisibility());
+        if (usePersonalized && citizenProfile) {
+          setWalkMapVisibility(
+            createProfileWalkMapVisibility(
+              profileWeightsToWalkWeights(citizenProfile.weights),
+            ),
+          );
+        } else {
+          setWalkMapVisibility(createDefaultWalkMapVisibility());
+        }
       } catch {
         setWalkError(
           "Serviciul de date deschise e momentan ocupat, încearcă din nou",
@@ -400,11 +413,18 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
       writeProfileToSessionStorage(profile);
       writeAnswersToSessionStorage(answers);
       setUsePersonalizedScore(true);
+      if (walkResult) {
+        setWalkMapVisibility(
+          createProfileWalkMapVisibility(
+            profileWeightsToWalkWeights(profile.weights),
+          ),
+        );
+      }
       if (walkDropPin) {
         void fetchWalkScore(walkDropPin[0], walkDropPin[1]);
       }
     },
-    [walkDropPin, fetchWalkScore],
+    [walkDropPin, walkResult, fetchWalkScore],
   );
 
   const handleDeleteProfile = useCallback(async () => {
@@ -429,8 +449,21 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
       setSelectedProject(null);
       mapRef.current?.flyTo(pin.lng, pin.lat);
       setWalkDropPin([pin.lng, pin.lat]);
+      setWalkAddressLabel(pin.label ?? null);
       void fetchWalkScore(pin.lng, pin.lat);
       setDrawerOpen(false);
+    },
+    [fetchWalkScore],
+  );
+
+  const handleAddressSelect = useCallback(
+    (lng: number, lat: number, label: string) => {
+      setMapMode("walkscore");
+      setSelectedProject(null);
+      mapRef.current?.flyTo(lng, lat);
+      setWalkDropPin([lng, lat]);
+      setWalkAddressLabel(label);
+      void fetchWalkScore(lng, lat);
     },
     [fetchWalkScore],
   );
@@ -447,6 +480,7 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
         const lng = e.lngLat.lng;
         const lat = e.lngLat.lat;
         setWalkDropPin([lng, lat]);
+        setWalkAddressLabel(null);
         void fetchWalkScore(lng, lat);
         return;
       }
@@ -497,12 +531,39 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
   );
   const walkRelevantKeys = useMemo(() => {
     if (!walkDropPin) return new Set<string>();
+    const categoryWeights =
+      usePersonalizedScore && citizenProfile
+        ? profileWeightsToWalkWeights(citizenProfile.weights)
+        : undefined;
     return getRelevantAmenityKeys(
       walkAmenitiesAll,
       walkDropPin[0],
       walkDropPin[1],
+      categoryWeights,
     );
-  }, [walkAmenitiesAll, walkDropPin]);
+  }, [
+    walkAmenitiesAll,
+    walkDropPin,
+    usePersonalizedScore,
+    citizenProfile,
+  ]);
+
+  const handlePersonalizedScoreChange = useCallback(
+    (value: boolean) => {
+      setUsePersonalizedScore(value);
+      if (!walkResult) return;
+      if (value && citizenProfile) {
+        setWalkMapVisibility(
+          createProfileWalkMapVisibility(
+            profileWeightsToWalkWeights(citizenProfile.weights),
+          ),
+        );
+      } else {
+        setWalkMapVisibility(createDefaultWalkMapVisibility());
+      }
+    },
+    [walkResult, citizenProfile],
+  );
 
   if (!mounted) {
     return <MapLoading />;
@@ -656,7 +717,23 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
             onToggleStatus={handleToggleStatus}
           />
         ) : (
-          <WalkModeHint />
+          <>
+            <div className="pointer-events-auto w-[min(92vw,420px)]">
+              <WalkAddressSearch
+                mapboxToken={token}
+                onSelect={handleAddressSelect}
+              />
+            </div>
+            <WalkModeHint />
+            {walkAddressLabel && (
+              <div className="pointer-events-auto rounded-xl bg-white/95 px-3 py-2 text-xs text-gray-600 shadow-md ring-1 ring-gray-200/80">
+                Pin:{" "}
+                <span className="font-medium text-gray-800">
+                  {walkAddressLabel}
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -668,12 +745,10 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
         result={!isProjectsMode ? displayWalkResult : null}
         loading={!isProjectsMode && walkLoading}
         error={!isProjectsMode ? walkError : null}
-        personalizedActive={
-          usePersonalizedScore && citizenProfile !== null
-        }
+        personalizedActive={citizenProfile !== null}
         personalizedProfileName={citizenProfile?.profile_name}
         usePersonalizedScore={usePersonalizedScore}
-        onPersonalizedScoreChange={setUsePersonalizedScore}
+        onPersonalizedScoreChange={handlePersonalizedScoreChange}
         mapVisibility={walkMapVisibility}
         onToggleCategoryOnMap={handleToggleWalkCategoryOnMap}
         onToggleSubcategoryOnMap={handleToggleWalkSubcategoryOnMap}

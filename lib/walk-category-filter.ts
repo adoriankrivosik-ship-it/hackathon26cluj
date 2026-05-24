@@ -34,6 +34,27 @@ export function createDefaultWalkMapVisibility(): WalkMapVisibility {
   };
 }
 
+/** Map layers for categories with non-zero profile weight. */
+export function createProfileWalkMapVisibility(
+  weights: Partial<Record<WalkCategoryKey, number>>,
+): WalkMapVisibility {
+  const subcategories = new Set<WalkSubcategoryKey>();
+  const leafCategories = new Set<WalkCategoryKey>();
+
+  for (const cat of WALK_CATEGORIES) {
+    if ((weights[cat.key] ?? 0) <= 0) continue;
+    if (cat.subcategories?.length) {
+      for (const sub of cat.subcategories) {
+        subcategories.add(sub.key);
+      }
+    } else {
+      leafCategories.add(cat.key);
+    }
+  }
+
+  return { subcategories, leafCategories };
+}
+
 export function isAmenityVisibleOnMap(
   amenity: WalkScoreAmenity,
   visibility: WalkMapVisibility,

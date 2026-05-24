@@ -159,11 +159,21 @@ export function WalkScorePanel({
             {personalizedActive && !mobileMinimized && (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span
-                  className="inline-flex items-center gap-1 rounded-full bg-[#F0A500]/15 px-2 py-0.5 text-xs font-medium text-[#0D1B2A]"
-                  title={personalizedProfileName ?? "Profil personalizat"}
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                    usePersonalizedScore
+                      ? "bg-[#F0A500]/15 text-[#0D1B2A]"
+                      : "bg-gray-100 text-gray-700"
+                  }`}
+                  title={
+                    usePersonalizedScore
+                      ? (personalizedProfileName ?? "Profil personalizat")
+                      : "Scor cu ponderi egale pe toate categoriile"
+                  }
                 >
-                  <span aria-hidden="true">🧠</span>
-                  Scor personalizat
+                  <span aria-hidden="true">
+                    {usePersonalizedScore ? "🧠" : "📊"}
+                  </span>
+                  {usePersonalizedScore ? "Scor personalizat" : "Scor standard"}
                 </span>
                 {onPersonalizedScoreChange && (
                   <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-gray-600">
