@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { extractProjectsFromUrl } from "@/lib/ai";
 import { withAdminAuth } from "@/lib/api-auth";
 
+export const runtime = "nodejs";
+export const maxDuration = 120;
+
 export async function POST(request: Request) {
   return withAdminAuth(async () => {
     const body = (await request.json()) as { url?: string };
@@ -16,7 +19,13 @@ export async function POST(request: Request) {
 
     try {
       const projects = await extractProjectsFromUrl(url);
-      return NextResponse.json({ projects });
+      return NextResponse.json({
+        projects,
+        hint:
+          projects.length === 0
+            ? "Pagina a fost analizată, dar AI nu a identificat proiecte de investiții. Folosiți un link direct către HCL, buget sau fișă de proiect, sau încărcați PDF."
+            : undefined,
+      });
     } catch (e) {
       console.error("import/url:", e);
       return NextResponse.json(

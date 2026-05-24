@@ -3,6 +3,8 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ToastProvider } from "@/components/admin/Toast";
 import { getSession, isAdminRole } from "@/lib/auth";
 
+export const runtime = "nodejs";
+
 export default async function AdminLayout({
   children,
 }: {

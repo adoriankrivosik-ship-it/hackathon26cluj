@@ -1,5 +1,5 @@
 import type { LedgerActionType } from "./admin-types";
-import { getDatabase } from "./db";
+import { getDatabase } from "./get-database-node";
 
 export async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest(
