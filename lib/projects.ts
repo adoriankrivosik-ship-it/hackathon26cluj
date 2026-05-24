@@ -25,6 +25,8 @@ export interface PublicProject {
   plannedEndDate: string;
   isDelayed: boolean;
   progressPercent: number;
+  /** Public link for citizens to read more (from projects.source_url). */
+  moreInfoUrl: string | null;
 }
 
 export const PROJECT_STATUSES: ProjectStatus[] = [

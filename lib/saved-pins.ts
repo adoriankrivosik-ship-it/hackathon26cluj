@@ -46,6 +46,8 @@ export async function createSavedPin(input: {
   overallScore: number;
   scoresJson: WalkScoreScores;
   label?: string | null;
+  profileName?: string | null;
+  profileEmoji?: string | null;
 }): Promise<DbSavedPin> {
   const db = await getDatabase();
   const id = generateSavedPinId();
@@ -54,8 +56,8 @@ export async function createSavedPin(input: {
 
   await db
     .prepare(
-      `INSERT INTO saved_pins (id, user_email, lng, lat, label, overall_score, scores_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO saved_pins (id, user_email, lng, lat, label, overall_score, scores_json, profile_name, profile_emoji, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -65,6 +67,8 @@ export async function createSavedPin(input: {
       input.label ?? null,
       input.overallScore,
       scoresJson,
+      input.profileName ?? null,
+      input.profileEmoji ?? null,
       now,
     )
     .run();
@@ -77,6 +81,8 @@ export async function createSavedPin(input: {
     label: input.label ?? null,
     overall_score: input.overallScore,
     scores_json: scoresJson,
+    profile_name: input.profileName ?? null,
+    profile_emoji: input.profileEmoji ?? null,
     created_at: now,
   };
 }

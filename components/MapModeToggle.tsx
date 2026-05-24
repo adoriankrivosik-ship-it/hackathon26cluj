@@ -12,7 +12,7 @@ interface MapModeToggleProps {
 export function MapModeToggle({ mode, onChange }: MapModeToggleProps) {
   return (
     <div
-      className="pointer-events-auto inline-flex rounded-xl bg-white/95 p-1 shadow-md ring-1 ring-gray-200/80 backdrop-blur-sm"
+      className="pointer-events-auto inline-flex shrink-0 rounded-xl bg-white/95 p-1 shadow-md ring-1 ring-gray-200/80 backdrop-blur-sm"
       role="tablist"
       aria-label="Mod hartă"
     >

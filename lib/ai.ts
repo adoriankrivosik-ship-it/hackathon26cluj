@@ -1,6 +1,16 @@
 import "server-only";
 
 import type { ExtractedProject } from "./admin-types";
+import type {
+  CitizenAnswers,
+  CitizenProfile,
+  CitizenProfileGenerationResult,
+  CitizenProfileWeights,
+} from "./citizen-profile-types";
+import {
+  buildHeuristicCitizenProfile,
+  isNearlyEqualProfile,
+} from "./citizen-profile-heuristic";
 import { htmlToPlainText } from "./html-text";
 
 const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
@@ -302,3 +312,192 @@ export async function extractProjectsFromPdfBase64(
     fileName.endsWith(".pdf") ? undefined : `${fileName}.pdf`,
   );
 }
+
+const CITIZEN_PROFILE_SYSTEM_PROMPT = `Ești un asistent urban pentru locuință. Pe baza răspunsurilor utilizatorului despre stilul de viață, generează un obiect JSON CitizenProfile cu câmpurile:
+weights (obiect cu: education, health, parks, transport, commercial, culture, sport, restaurants, banks — fiecare număr între 0 și 1),
+excluded_categories (array de string-uri cu categoriile cu greutate 0),
+profile_name (string scurt în română, ex. "Activ și conectat"),
+profile_emoji (un singur emoji),
+profile_summary (1-2 propoziții în română).
+
+Greutățile din weights trebuie să însumeze exact 1.0. Categoriile excluse au greutate 0. Fii generos cu greutățile pentru prioritățile declarate.
+Răspunsul trebuie să fie DOAR JSON valid, fără markdown.`;
+
+const DEFAULT_CITIZEN_PROFILE: CitizenProfile = {
+  weights: {
+    education: 1 / 9,
+    health: 1 / 9,
+    parks: 1 / 9,
+    transport: 1 / 9,
+    commercial: 1 / 9,
+    culture: 1 / 9,
+    sport: 1 / 9,
+    restaurants: 1 / 9,
+    banks: 1 / 9,
+  },
+  excluded_categories: [],
+  profile_name: "Echilibrat",
+  profile_emoji: "🏘️",
+  profile_summary:
+    "Profil echilibrat cu importanță egală pentru toate categoriile din zonă.",
+};
+
+const WEIGHT_KEYS: (keyof CitizenProfileWeights)[] = [
+  "education",
+  "health",
+  "parks",
+  "transport",
+  "commercial",
+  "culture",
+  "sport",
+  "restaurants",
+  "banks",
+];
+
+function parseCitizenProfileJson(raw: string): CitizenProfile | null {
+  let jsonStr = raw.trim();
+  const fenced = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) jsonStr = fenced[1].trim();
+
+  const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+  if (!objectMatch) return null;
+
+  try {
+    const parsed = JSON.parse(objectMatch[0]) as Partial<CitizenProfile>;
+    if (!parsed.weights || typeof parsed.profile_name !== "string") {
+      return null;
+    }
+
+    const weights = {} as CitizenProfileWeights;
+    for (const key of WEIGHT_KEYS) {
+      const v = Number(parsed.weights[key]);
+      weights[key] = Number.isFinite(v) && v >= 0 ? v : 0;
+    }
+
+    let sum = WEIGHT_KEYS.reduce((acc, k) => acc + weights[k], 0);
+    if (sum <= 0) return null;
+
+    if (Math.abs(sum - 1) > 0.02) {
+      for (const key of WEIGHT_KEYS) {
+        weights[key] = weights[key] / sum;
+      }
+    }
+
+    return {
+      weights,
+      excluded_categories: Array.isArray(parsed.excluded_categories)
+        ? parsed.excluded_categories.filter((c) => typeof c === "string")
+        : [],
+      profile_name: parsed.profile_name.trim() || DEFAULT_CITIZEN_PROFILE.profile_name,
+      profile_emoji:
+        typeof parsed.profile_emoji === "string" && parsed.profile_emoji.trim()
+          ? parsed.profile_emoji.trim().slice(0, 4)
+          : DEFAULT_CITIZEN_PROFILE.profile_emoji,
+      profile_summary:
+        typeof parsed.profile_summary === "string" && parsed.profile_summary.trim()
+          ? parsed.profile_summary.trim()
+          : DEFAULT_CITIZEN_PROFILE.profile_summary,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateCitizenProfile(
+  answers: CitizenAnswers,
+): Promise<CitizenProfile> {
+  if (!process.env.OPENROUTER_API_KEY) {
+    return DEFAULT_CITIZEN_PROFILE;
+  }
+
+  const userPrompt = `Generează profilul CitizenProfile pentru următoarele răspunsuri (JSON):
+${JSON.stringify(answers, null, 2)}
+
+Prioritățile sunt ordonate de la cea mai importantă la cea mai puțin importantă.
+Ultimele 2 categorii din listă sunt excluse (greutate 0).`;
+
+  try {
+    const text = await callAi(userPrompt, CITIZEN_PROFILE_SYSTEM_PROMPT);
+    return parseCitizenProfileJson(text) ?? DEFAULT_CITIZEN_PROFILE;
+  } catch {
+    return DEFAULT_CITIZEN_PROFILE;
+  }
+}
+
+export async function generateCitizenProfileDetailed(
+  answers: CitizenAnswers,
+): Promise<CitizenProfileGenerationResult> {
+  const aiConfigured = Boolean(process.env.OPENROUTER_API_KEY?.trim());
+  const warnings: string[] = [];
+
+  if (!aiConfigured) {
+    warnings.push(
+      "Cheia OPENROUTER_API_KEY lipsește — profilul e calculat local din răspunsurile tale.",
+    );
+    return {
+      profile: buildHeuristicCitizenProfile(answers),
+      source: "heuristic",
+      warnings,
+      aiConfigured: false,
+    };
+  }
+
+  const userPrompt = `Generează profilul CitizenProfile pentru următoarele răspunsuri (JSON):
+${JSON.stringify(answers, null, 2)}
+
+Prioritățile sunt ordonate de la cea mai importantă la cea mai puțin importantă.
+Ultimele 2 categorii din listă sunt excluse (greutate 0).
+Răspunsul trebuie să fie DOAR JSON valid, fără markdown.`;
+
+  try {
+    const text = await callAi(userPrompt, CITIZEN_PROFILE_SYSTEM_PROMPT);
+    const parsed = parseCitizenProfileJson(text);
+
+    if (!parsed) {
+      warnings.push(
+        "AI nu a returnat JSON valid — folosim calcul local din prioritățile tale.",
+      );
+      return {
+        profile: buildHeuristicCitizenProfile(answers),
+        source: "heuristic",
+        warnings,
+        aiConfigured: true,
+      };
+    }
+
+    if (
+      isNearlyEqualProfile(parsed) &&
+      answers.priorities.length >= 2
+    ) {
+      warnings.push(
+        "AI a returnat un profil prea generic — am recalculat local din răspunsurile tale.",
+      );
+      return {
+        profile: buildHeuristicCitizenProfile(answers),
+        source: "heuristic",
+        warnings,
+        aiConfigured: true,
+      };
+    }
+
+    return {
+      profile: parsed,
+      source: "ai",
+      warnings,
+      aiConfigured: true,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Serviciul AI este indisponibil.";
+    warnings.push(`AI: ${message}`);
+    warnings.push("Profilul a fost generat local din răspunsurile tale.");
+    return {
+      profile: buildHeuristicCitizenProfile(answers),
+      source: "heuristic",
+      warnings,
+      aiConfigured: true,
+    };
+  }
+}
+
+export type { CitizenAnswers, CitizenProfile };

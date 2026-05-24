@@ -111,7 +111,7 @@ const AUDIT_FIELD_LABEL: Record<string, string> = {
   end_date: "Data final",
   location_lat: "Latitudine",
   location_lng: "Longitudine",
-  source_url: "URL sursă",
+  source_url: "Link „Citiți mai mult”",
   source_type: "Tip sursă",
 };
 

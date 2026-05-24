@@ -201,7 +201,18 @@ export function createMockD1Database(): D1Database {
     label: string | null;
     overall_score: number | null;
     scores_json: string | null;
+    profile_name: string | null;
+    profile_emoji: string | null;
     created_at: string;
+  }[] = [];
+
+  const citizenProfiles: {
+    id: string;
+    user_email: string;
+    answers_json: string;
+    profile_json: string;
+    created_at: string;
+    updated_at: string;
   }[] = [];
 
   return {
@@ -226,7 +237,14 @@ export function createMockD1Database(): D1Database {
             }
             return { results: [] as T[], success: true as const };
           },
-          first: async <T>() => null as T | null,
+          first: async <T>() => {
+            if (normalized.includes("from citizen_profiles where user_email")) {
+              const email = values[0] as string;
+              const row = citizenProfiles.find((p) => p.user_email === email);
+              return (row ?? null) as T | null;
+            }
+            return null as T | null;
+          },
           run: async () => {
             if (normalized.includes("insert into walk_pins")) {
               walkPins.push({
@@ -249,8 +267,44 @@ export function createMockD1Database(): D1Database {
                 label: values[4] as string | null,
                 overall_score: values[5] as number | null,
                 scores_json: values[6] as string | null,
-                created_at: values[7] as string,
+                profile_name: (values[7] as string | null) ?? null,
+                profile_emoji: (values[8] as string | null) ?? null,
+                created_at: values[9] as string,
               });
+            }
+            if (normalized.includes("insert into citizen_profiles")) {
+              citizenProfiles.push({
+                id: values[0] as string,
+                user_email: values[1] as string,
+                answers_json: values[2] as string,
+                profile_json: values[3] as string,
+                created_at: values[4] as string,
+                updated_at: values[5] as string,
+              });
+            }
+            if (normalized.includes("update citizen_profiles")) {
+              const email = values[3] as string;
+              const row = citizenProfiles.find((p) => p.user_email === email);
+              if (row) {
+                row.answers_json = values[0] as string;
+                row.profile_json = values[1] as string;
+                row.updated_at = values[2] as string;
+              }
+              return {
+                success: true as const,
+                meta: { changes: row ? 1 : 0 },
+              };
+            }
+            if (normalized.includes("delete from citizen_profiles")) {
+              const email = values[0] as string;
+              const idx = citizenProfiles.findIndex(
+                (p) => p.user_email === email,
+              );
+              if (idx >= 0) citizenProfiles.splice(idx, 1);
+              return {
+                success: true as const,
+                meta: { changes: idx >= 0 ? 1 : 0 },
+              };
             }
             if (normalized.includes("delete from saved_pins")) {
               const id = values[0] as string;

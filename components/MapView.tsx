@@ -36,6 +36,19 @@ import { MapModeToggle, type MapMode } from "./MapModeToggle";
 import { WalkScorePanel } from "./WalkScorePanel";
 import { WalkModeHint } from "./WalkModeHint";
 import { SavedPinsDrawer } from "./SavedPinsDrawer";
+import { CitizenProfileChatbot } from "./CitizenProfileChatbot";
+import type {
+  CitizenAnswers,
+  CitizenProfile,
+} from "@/lib/citizen-profile-types";
+import {
+  computeWeightedOverallScore,
+  profileWeightsToWalkWeights,
+  readAnswersFromSessionStorage,
+  readProfileFromSessionStorage,
+  writeAnswersToSessionStorage,
+  writeProfileToSessionStorage,
+} from "@/lib/citizen-profile-types";
 import type { MapCanvasHandle } from "./MapCanvas";
 
 const MapCanvas = dynamic(() => import("./MapCanvas"), {
@@ -89,6 +102,15 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savePinLoading, setSavePinLoading] = useState(false);
   const [pinToast, setPinToast] = useState<string | null>(null);
+
+  const [citizenProfile, setCitizenProfile] = useState<CitizenProfile | null>(
+    null,
+  );
+  const [citizenAnswers, setCitizenAnswers] = useState<CitizenAnswers | null>(
+    null,
+  );
+  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [usePersonalizedScore, setUsePersonalizedScore] = useState(true);
 
   const isCitizen = citizenUser !== null;
 
@@ -161,6 +183,42 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
   }, [loadSavedPins]);
 
   useEffect(() => {
+    if (!isCitizen) return;
+
+    const cachedProfile = readProfileFromSessionStorage();
+    const cachedAnswers = readAnswersFromSessionStorage();
+    if (cachedProfile) {
+      setCitizenProfile(cachedProfile);
+      setUsePersonalizedScore(true);
+    }
+    if (cachedAnswers) {
+      setCitizenAnswers(cachedAnswers);
+    }
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/citizen/profile");
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          profile: CitizenProfile | null;
+          answers: CitizenAnswers | null;
+        };
+        if (data.profile) {
+          setCitizenProfile(data.profile);
+          writeProfileToSessionStorage(data.profile);
+          setUsePersonalizedScore(true);
+        }
+        if (data.answers) {
+          setCitizenAnswers(data.answers);
+          writeAnswersToSessionStorage(data.answers);
+        }
+      } catch {
+        /* keep session cache */
+      }
+    })();
+  }, [isCitizen]);
+
+  useEffect(() => {
     if (!pinToast) return;
     const id = setTimeout(() => setPinToast(null), 2500);
     return () => clearTimeout(id);
@@ -176,6 +234,35 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     }
     return null;
   }, [walkDropPin, savedPins, isCitizen]);
+
+  const displayWalkResult = useMemo(() => {
+    if (!walkResult) return null;
+    if (!usePersonalizedScore || !citizenProfile) {
+      const equalWeights = profileWeightsToWalkWeights({
+        education: 1 / 9,
+        health: 1 / 9,
+        parks: 1 / 9,
+        transport: 1 / 9,
+        commercial: 1 / 9,
+        culture: 1 / 9,
+        sport: 1 / 9,
+        restaurants: 1 / 9,
+        banks: 1 / 9,
+      });
+      return {
+        ...walkResult,
+        overallScore: computeWeightedOverallScore(
+          walkResult.scores,
+          equalWeights,
+        ),
+      };
+    }
+    const weights = profileWeightsToWalkWeights(citizenProfile.weights);
+    return {
+      ...walkResult,
+      overallScore: computeWeightedOverallScore(walkResult.scores, weights),
+    };
+  }, [walkResult, usePersonalizedScore, citizenProfile]);
 
   const handleToggleSavePin = useCallback(async () => {
     if (!isCitizen || !walkDropPin || !walkResult) return;
@@ -201,8 +288,16 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
           body: JSON.stringify({
             lng,
             lat,
-            overall_score: walkResult.overallScore,
+            overall_score: displayWalkResult?.overallScore ?? walkResult.overallScore,
             scores_json: walkResult.scores,
+            profile_name:
+              usePersonalizedScore && citizenProfile
+                ? citizenProfile.profile_name
+                : undefined,
+            profile_emoji:
+              usePersonalizedScore && citizenProfile
+                ? citizenProfile.profile_emoji
+                : undefined,
           }),
         });
         if (res.ok) {
@@ -214,7 +309,15 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     } finally {
       setSavePinLoading(false);
     }
-  }, [isCitizen, walkDropPin, walkResult, matchingSavedPin]);
+  }, [
+    isCitizen,
+    walkDropPin,
+    walkResult,
+    displayWalkResult,
+    matchingSavedPin,
+    usePersonalizedScore,
+    citizenProfile,
+  ]);
 
   const handleDeleteSavedPin = useCallback(
     async (id: string) => {
@@ -237,36 +340,88 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
     handleCloseWalkPanel();
   }, [handleCloseWalkPanel]);
 
-  const fetchWalkScore = useCallback(async (lng: number, lat: number) => {
-    setWalkLoading(true);
-    setWalkError(null);
-    setWalkResult(null);
-    setWalkRelevantOnly(false);
+  const fetchWalkScore = useCallback(
+    async (lng: number, lat: number) => {
+      setWalkLoading(true);
+      setWalkError(null);
+      setWalkResult(null);
+      setWalkRelevantOnly(false);
 
-    try {
-      const res = await fetch(
-        `/api/walkscore?lng=${encodeURIComponent(lng)}&lat=${encodeURIComponent(lat)}`,
-      );
-      const data = (await res.json()) as WalkScoreResult & { error?: string };
+      try {
+        const usePersonalized =
+          usePersonalizedScore && citizenProfile !== null;
+        let res: Response;
 
-      if (!res.ok) {
+        if (usePersonalized && citizenProfile) {
+          res = await fetch("/api/walkscore", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lng,
+              lat,
+              profileWeights: profileWeightsToWalkWeights(
+                citizenProfile.weights,
+              ),
+            }),
+          });
+        } else {
+          res = await fetch(
+            `/api/walkscore?lng=${encodeURIComponent(lng)}&lat=${encodeURIComponent(lat)}`,
+          );
+        }
+
+        const data = (await res.json()) as WalkScoreResult & { error?: string };
+
+        if (!res.ok) {
+          setWalkError(
+            data.error ??
+              "Serviciul de date deschise e momentan ocupat, încearcă din nou",
+          );
+          return;
+        }
+
+        setWalkResult(data);
+        setWalkMapVisibility(createDefaultWalkMapVisibility());
+      } catch {
         setWalkError(
-          data.error ??
-            "Serviciul de date deschise e momentan ocupat, încearcă din nou",
+          "Serviciul de date deschise e momentan ocupat, încearcă din nou",
         );
-        return;
+      } finally {
+        setWalkLoading(false);
       }
+    },
+    [usePersonalizedScore, citizenProfile],
+  );
 
-      setWalkResult(data);
-      setWalkMapVisibility(createDefaultWalkMapVisibility());
+  const handleProfileApplied = useCallback(
+    (profile: CitizenProfile, answers: CitizenAnswers) => {
+      setCitizenProfile(profile);
+      setCitizenAnswers(answers);
+      writeProfileToSessionStorage(profile);
+      writeAnswersToSessionStorage(answers);
+      setUsePersonalizedScore(true);
+      if (walkDropPin) {
+        void fetchWalkScore(walkDropPin[0], walkDropPin[1]);
+      }
+    },
+    [walkDropPin, fetchWalkScore],
+  );
+
+  const handleDeleteProfile = useCallback(async () => {
+    try {
+      await fetch("/api/citizen/profile", { method: "DELETE" });
     } catch {
-      setWalkError(
-        "Serviciul de date deschise e momentan ocupat, încearcă din nou",
-      );
-    } finally {
-      setWalkLoading(false);
+      /* ignore */
     }
-  }, []);
+    setCitizenProfile(null);
+    setCitizenAnswers(null);
+    writeProfileToSessionStorage(null);
+    writeAnswersToSessionStorage(null);
+    setUsePersonalizedScore(false);
+    if (walkDropPin && walkResult) {
+      setWalkResult({ ...walkResult, overallScore: walkResult.overallScore });
+    }
+  }, [walkDropPin, walkResult]);
 
   const handleSelectSavedPin = useCallback(
     (pin: DbSavedPin) => {
@@ -332,7 +487,10 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
 
   const walkIsochrone: IsochroneGeoJSON | null =
     walkResult?.isochroneGeojson ?? null;
-  const walkAmenitiesAll = walkResult?.amenities ?? [];
+  const walkAmenitiesAll = useMemo(
+    () => walkResult?.amenities ?? [],
+    [walkResult],
+  );
   const walkAmenities = useMemo(
     () => filterAmenitiesForMap(walkAmenitiesAll, walkMapVisibility),
     [walkAmenitiesAll, walkMapVisibility],
@@ -387,45 +545,45 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
       />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex flex-col gap-2 p-4 md:p-5 md:pl-[3.25rem]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
-            <div className="pointer-events-auto shrink-0 rounded-xl bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm ring-1 ring-gray-200/80">
-              <h1 className="text-base font-semibold text-primary md:text-lg">
-                Hartă Proiecte Publice
-              </h1>
-              <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
-                Cluj-Napoca — transparență civică
-              </p>
-              {isCitizen ? (
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setDrawerOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A] transition-colors hover:border-[#F0A500] hover:text-[#F0A500]"
-                  >
-                    <span aria-hidden="true">❤️</span>
-                    Pinii mei
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleLogout()}
-                    className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A]/80 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
-                  >
-                    Ieșire
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  href="/login?type=admin"
-                  className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="pointer-events-auto min-w-0 shrink-0 rounded-xl bg-white/95 px-4 py-3 shadow-md backdrop-blur-sm ring-1 ring-gray-200/80">
+            <h1 className="text-base font-semibold text-primary md:text-lg">
+              Hartă Proiecte Publice
+            </h1>
+            <p className="mt-0.5 text-xs text-gray-600 md:text-sm">
+              Cluj-Napoca — transparență civică
+            </p>
+            {isCitizen ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A] transition-colors hover:border-[#F0A500] hover:text-[#F0A500]"
                 >
-                  Panou admin
-                </Link>
-              )}
-            </div>
-            <MapModeToggle mode={mapMode} onChange={handleModeChange} />
+                  <span aria-hidden="true">❤️</span>
+                  Pinii mei
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-[#0D1B2A]/80 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                >
+                  Ieșire
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login?type=admin"
+                className="mt-2 inline-flex items-center gap-1 rounded text-xs font-medium text-[#0D1B2A]/70 underline-offset-2 hover:text-[#F0A500] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F0A500]"
+              >
+                Panou admin
+              </Link>
+            )}
           </div>
-          {isProjectsMode && (
+          <MapModeToggle mode={mapMode} onChange={handleModeChange} />
+        </div>
+        {isProjectsMode && (
+          <div className="pointer-events-auto min-w-0 w-full max-w-full">
             <FilterBar
               filters={filters}
               onCategoryChange={handleCategoryChange}
@@ -434,8 +592,8 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
               totalCount={projects.length}
               showCount={filtersActive}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {pinToast && (
@@ -452,10 +610,43 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
           open={drawerOpen}
           pins={savedPins}
           loading={savedPinsLoading}
+          profile={citizenProfile}
           onClose={() => setDrawerOpen(false)}
           onSelectPin={handleSelectSavedPin}
           onDeletePin={handleDeleteSavedPin}
+          onEditProfile={() => setChatbotOpen(true)}
+          onDeleteProfile={() => void handleDeleteProfile()}
         />
+      )}
+
+      {isCitizen && citizenUser && (
+        <>
+          <button
+            type="button"
+            onClick={() => setChatbotOpen(true)}
+            className="pointer-events-auto fixed bottom-6 right-4 z-20 flex min-h-[44px] items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#0D1B2A] shadow-lg ring-1 ring-gray-200/80 transition-all duration-200 hover:ring-[#F0A500] md:bottom-8 md:right-[400px]"
+            aria-label="Personalizează scorul de walkability"
+          >
+            <span aria-hidden="true">✨</span>
+            <span className="hidden sm:inline">Personalizează scorul</span>
+            {citizenProfile && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#F0A500]/15 px-2 py-0.5 text-xs font-medium text-[#0D1B2A]">
+                <span aria-hidden="true">{citizenProfile.profile_emoji}</span>
+                <span className="max-w-[100px] truncate">
+                  {citizenProfile.profile_name}
+                </span>
+              </span>
+            )}
+          </button>
+          <CitizenProfileChatbot
+            open={chatbotOpen}
+            citizenName={citizenUser.name}
+            hasExistingProfile={citizenProfile !== null}
+            initialAnswers={citizenAnswers}
+            onClose={() => setChatbotOpen(false)}
+            onProfileApplied={handleProfileApplied}
+          />
+        </>
       )}
 
       <div className="pointer-events-none absolute bottom-6 left-4 z-10 flex flex-col gap-2 md:bottom-8 md:left-5">
@@ -474,9 +665,15 @@ export function MapView({ projects, citizenUser = null }: MapViewProps) {
         onClose={handleCloseProject}
       />
       <WalkScorePanel
-        result={!isProjectsMode ? walkResult : null}
+        result={!isProjectsMode ? displayWalkResult : null}
         loading={!isProjectsMode && walkLoading}
         error={!isProjectsMode ? walkError : null}
+        personalizedActive={
+          usePersonalizedScore && citizenProfile !== null
+        }
+        personalizedProfileName={citizenProfile?.profile_name}
+        usePersonalizedScore={usePersonalizedScore}
+        onPersonalizedScoreChange={setUsePersonalizedScore}
         mapVisibility={walkMapVisibility}
         onToggleCategoryOnMap={handleToggleWalkCategoryOnMap}
         onToggleSubcategoryOnMap={handleToggleWalkSubcategoryOnMap}

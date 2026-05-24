@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       overall_score?: number;
       scores_json?: WalkScoreScores;
       label?: string;
+      profile_name?: string;
+      profile_emoji?: string;
     };
 
     const lng = body.lng;
@@ -46,6 +48,8 @@ export async function POST(request: Request) {
       overallScore: body.overall_score ?? 0,
       scoresJson: body.scores_json ?? ({} as WalkScoreScores),
       label: body.label,
+      profileName: body.profile_name ?? null,
+      profileEmoji: body.profile_emoji ?? null,
     });
 
     return NextResponse.json({ pin });

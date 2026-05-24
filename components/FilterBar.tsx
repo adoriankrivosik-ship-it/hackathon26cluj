@@ -85,7 +85,7 @@ export function FilterBar({
   return (
     <>
       {/* Desktop */}
-      <div className="pointer-events-auto hidden w-full max-w-3xl flex-col gap-2 md:flex">
+      <div className="pointer-events-auto hidden w-full min-w-0 flex-col gap-2 md:flex">
         <div className="flex flex-wrap items-center gap-3">
           {categoryChips}
           {delayedToggle}

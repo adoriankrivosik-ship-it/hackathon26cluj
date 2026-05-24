@@ -8,6 +8,8 @@ export interface DbSavedPin {
   label: string | null;
   overall_score: number | null;
   scores_json: string | null;
+  profile_name: string | null;
+  profile_emoji: string | null;
   created_at: string;
 }
 

@@ -210,7 +210,30 @@ export function ProjectForm({
         {field("Data început", "start_date", { type: "date" })}
         {field("Data finalizare", "end_date", { type: "date" })}
       </div>
-      {field("URL sursă", "source_url", { type: "url" })}
+      <div>
+        <label
+          htmlFor="field-source_url"
+          className="mb-1 block text-sm font-medium text-gray-700"
+        >
+          Link „Citiți mai mult” (opțional)
+        </label>
+        <input
+          id="field-source_url"
+          type="url"
+          value={values.source_url}
+          onChange={(e) => set("source_url", e.target.value)}
+          disabled={disabled}
+          placeholder="https://exemplu.ro/proiect"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#F0A500] focus:outline-none focus:ring-1 focus:ring-[#F0A500]"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Apare pe harta publică ca link pentru cetățeni. Trebuie să înceapă cu
+          http:// sau https://
+        </p>
+        {errors.source_url && (
+          <p className="mt-1 text-xs text-red-600">{errors.source_url}</p>
+        )}
+      </div>
       <div>
         <p className="mb-2 text-sm font-medium text-gray-700">Coordonate GPS</p>
         <div className="grid gap-4 sm:grid-cols-2">

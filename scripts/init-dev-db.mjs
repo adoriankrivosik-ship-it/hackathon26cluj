@@ -90,6 +90,35 @@ if (!savedPinsTable) {
   console.log("Applied 0005_saved_pins.sql");
 }
 
+const citizenProfilesTable = db
+  .prepare(
+    "SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name='citizen_profiles'",
+  )
+  .get()?.c;
+
+if (!citizenProfilesTable) {
+  const sql = fs.readFileSync(
+    path.join(migrationsDir, "0006_citizen_profiles.sql"),
+    "utf8",
+  );
+  db.exec(sql);
+  console.log("Applied 0006_citizen_profiles.sql");
+}
+
+const savedPinsProfileCol = db
+  .prepare("PRAGMA table_info(saved_pins)")
+  .all()
+  .some((col) => col.name === "profile_name");
+
+if (!savedPinsProfileCol) {
+  const sql = fs.readFileSync(
+    path.join(migrationsDir, "0007_saved_pins_profile.sql"),
+    "utf8",
+  );
+  db.exec(sql);
+  console.log("Applied 0007_saved_pins_profile.sql");
+}
+
 db.close();
 
 execSync("node scripts/seed-walk-pins.mjs", { stdio: "inherit", cwd: root });

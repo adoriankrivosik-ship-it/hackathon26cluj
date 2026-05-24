@@ -46,5 +46,6 @@ export function mapToPublicProject(row: DbProject): PublicProject {
           : row.status === "continuing"
             ? 50
             : 15,
+    moreInfoUrl: row.source_url?.trim() || null,
   };
 }

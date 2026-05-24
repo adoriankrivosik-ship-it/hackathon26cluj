@@ -33,6 +33,10 @@ interface WalkScorePanelProps {
   isSaved?: boolean;
   saveLoading?: boolean;
   onToggleSave?: () => void;
+  personalizedActive?: boolean;
+  personalizedProfileName?: string;
+  usePersonalizedScore?: boolean;
+  onPersonalizedScoreChange?: (value: boolean) => void;
 }
 
 export function WalkScorePanel({
@@ -52,6 +56,10 @@ export function WalkScorePanel({
   isSaved = false,
   saveLoading = false,
   onToggleSave,
+  personalizedActive = false,
+  personalizedProfileName,
+  usePersonalizedScore = false,
+  onPersonalizedScoreChange,
 }: WalkScorePanelProps) {
   const isOpen = loading || error !== null || result !== null;
   const [mobileMinimized, setMobileMinimized] = useState(false);
@@ -147,6 +155,40 @@ export function WalkScorePanel({
             </div>
             {result?.cached && !mobileMinimized && (
               <p className="mt-1 text-xs text-gray-500">Rezultat din cache</p>
+            )}
+            {personalizedActive && !mobileMinimized && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className="inline-flex items-center gap-1 rounded-full bg-[#F0A500]/15 px-2 py-0.5 text-xs font-medium text-[#0D1B2A]"
+                  title={personalizedProfileName ?? "Profil personalizat"}
+                >
+                  <span aria-hidden="true">🧠</span>
+                  Scor personalizat
+                </span>
+                {onPersonalizedScoreChange && (
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-gray-600">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={usePersonalizedScore}
+                      aria-label="Comută între scor personalizat și standard"
+                      onClick={() =>
+                        onPersonalizedScoreChange(!usePersonalizedScore)
+                      }
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                        usePersonalizedScore ? "bg-[#F0A500]" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+                          usePersonalizedScore ? "translate-x-4" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                    {usePersonalizedScore ? "Personalizat" : "Standard"}
+                  </label>
+                )}
+              </div>
             )}
             {mobileMinimized && loading && (
               <p className="mt-0.5 text-xs text-gray-500 md:hidden">
