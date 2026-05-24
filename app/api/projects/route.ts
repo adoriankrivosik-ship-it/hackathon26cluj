@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { loadProjects } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
 
 /** GET /api/projects — optional JSON access to seeded D1 data. */
 export async function GET() {
